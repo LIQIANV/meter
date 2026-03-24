@@ -1,3 +1,9 @@
+/**
+ * 前端页面运行时状态。
+ *
+ * 这里集中保存初始化后拿到的下拉选项、全量记录、级联映射和查询历史，
+ * 避免不同函数之间通过 DOM 反复读取同一份业务数据。
+ */
 const state = {
     options: null,
     allRecords: [],
@@ -36,6 +42,16 @@ historyBackdrop.addEventListener('click', closeHistoryModal);
 
 window.addEventListener('DOMContentLoaded', initializePage);
 
+/**
+ * 初始化页面。
+ *
+ * 页面首次加载时并行请求：
+ * 1. 全局筛选项。
+ * 2. 默认搜索结果，用于前端构造级联关系和浏览模式的全量数据。
+ * 3. 最近查询历史。
+ *
+ * 这一步相当于前端应用的“启动流程”。
+ */
 async function initializePage() {
     try {
         setMessage('正在加载筛选数据...', 'info');
@@ -79,6 +95,12 @@ async function initializePage() {
     }
 }
 
+/**
+ * 把平铺记录整理成级联下拉所需的嵌套结构。
+ *
+ * 结构形态为：类别 -> 二级分类 -> 设备名称 -> 型号 -> 厂家列表。
+ * 这样在任一级下拉变化时，后续下拉都可以直接从内存中推导，不需要再次请求后端。
+ */
 function generateCascadeData(data) {
     const result = {};
     data.forEach(record => {
@@ -107,6 +129,11 @@ function generateCascadeData(data) {
     return result;
 }
 
+/**
+ * 处理“类别”下拉变化。
+ *
+ * 当上游条件变化时，下游所有选择都必须清空，否则会出现旧值与新路径不匹配的问题。
+ */
 function handleCategoryChange() {
     const selectedCategory = categorySelect.value;
     resetSelect(subCategorySelect, '请选择二级分类');
@@ -125,6 +152,9 @@ function handleCategoryChange() {
     );
 }
 
+/**
+ * 处理“二级分类”变化，并刷新设备名称列表。
+ */
 function handleSubCategoryChange() {
     const selectedCategory = categorySelect.value;
     const selectedSubCategory = subCategorySelect.value;
@@ -140,6 +170,9 @@ function handleSubCategoryChange() {
     populateSelect(equipmentNameSelect, equipmentNames, '请选择设备名称');
 }
 
+/**
+ * 处理“设备名称”变化，并刷新型号列表。
+ */
 function handleEquipmentChange() {
     const selectedCategory = categorySelect.value;
     const selectedSubCategory = subCategorySelect.value;
@@ -155,6 +188,11 @@ function handleEquipmentChange() {
     populateSelect(modelSelect, models, '请选择型号');
 }
 
+/**
+ * 处理“型号”变化，并刷新厂家列表。
+ *
+ * 当前数据里厂家位于级联结构的最后一层，因此型号确定后即可得出候选厂家。
+ */
 function handleModelChange() {
     const selectedCategory = categorySelect.value;
     const selectedSubCategory = subCategorySelect.value;
@@ -170,6 +208,16 @@ function handleModelChange() {
     populateSelect(manufacturerSelect, manufacturers, '请选择厂家');
 }
 
+/**
+ * 处理表单提交。
+ *
+ * 这个函数串起了整条前端业务流程：
+ * 1. 解析测量对象要求范围。
+ * 2. 调用 FastAPI 搜索接口获取基础候选记录。
+ * 3. 刷新查询历史。
+ * 4. 如填写了测量范围，则执行量程覆盖和 MPE 技术筛选。
+ * 5. 对结果排序并渲染页面。
+ */
 async function handleSubmit(event) {
     event.preventDefault();
 
@@ -246,6 +294,13 @@ async function handleSubmit(event) {
     }
 }
 
+/**
+ * 按测量对象要求范围做技术筛选。
+ *
+ * 只有同时满足以下条件的设备才会保留：
+ * 1. 设备量程完整覆盖要求区间。
+ * 2. 根据设备规则计算出的 MPE 不超过“区间长度 ÷ 6”的上限。
+ */
 function filterRecordsByMeasurement(candidateRecords, measurementRequirement) {
     const selectedRecords = [];
 
@@ -277,22 +332,43 @@ function filterRecordsByMeasurement(candidateRecords, measurementRequirement) {
     return selectedRecords;
 }
 
+/**
+ * 重新加载最近查询历史并刷新弹窗内容。
+ *
+ * 查询完成后再次请求日志接口，确保“刚刚执行过的搜索”能立即出现在历史记录里。
+ */
 async function refreshSearchLogs() {
     const logsResult = await fetchJson(buildApiUrl('/search-logs?limit=12'));
     state.searchLogs = logsResult.data.records || [];
     renderHistoryList();
 }
 
+/**
+ * 浏览模式下的结果排序规则。
+ *
+ * 没有启用技术筛选时，按类别、二级分类、名称、型号做稳定排序，方便人工浏览。
+ */
 function sortRecordsForBrowse(left, right) {
     const leftText = `${left.fields.一级分类.name}|${left.fields.二级分类}|${left.fields.名称}|${left.fields.型号}`;
     const rightText = `${right.fields.一级分类.name}|${right.fields.二级分类}|${right.fields.名称}|${right.fields.型号}`;
     return leftText.localeCompare(rightText, 'zh-CN');
 }
 
+/**
+ * 拼接 API 地址。
+ *
+ * 页面以本地文件方式打开时使用固定本地后端地址，部署到 FastAPI 静态托管后则走相对路径。
+ */
 function buildApiUrl(path) {
     return `${API_BASE}${path}`;
 }
 
+/**
+ * 统一执行 fetch 并解析标准 JSON 响应。
+ *
+ * 后端约定返回 success/message/data 结构，因此这里集中处理网络错误、HTTP 错误和业务错误，
+ * 避免每个调用点都写一遍重复判断。
+ */
 async function fetchJson(url, options) {
     let response;
     try {
@@ -308,20 +384,36 @@ async function fetchJson(url, options) {
     return payload;
 }
 
+/**
+ * 在页面顶部展示状态消息。
+ *
+ * type 会映射到不同样式，用来区分提示、成功和错误状态。
+ */
 function setMessage(message, type) {
     messageBar.textContent = message;
     messageBar.className = `message-bar ${type}`;
 }
 
+/**
+ * 打开查询历史弹窗。
+ */
 function openHistoryModal() {
     renderHistoryList();
     historyModal.classList.remove('hidden');
 }
 
+/**
+ * 关闭查询历史弹窗。
+ */
 function closeHistoryModal() {
     historyModal.classList.add('hidden');
 }
 
+/**
+ * 把查询历史渲染到弹窗中。
+ *
+ * 每条历史记录都会显示查询时间、命中数量和条件摘要，并提供“一键回填”按钮。
+ */
 function renderHistoryList() {
     const logs = state.searchLogs || [];
     if (logs.length === 0) {
@@ -357,6 +449,11 @@ function renderHistoryList() {
     });
 }
 
+/**
+ * 把一次查询条件转换成适合展示的 HTML 片段。
+ *
+ * 这里只展示用户真正填写过的条件，避免空字段占满界面。
+ */
 function buildHistoryQueryLines(query) {
     const lines = [
         ['类别', query.category],
@@ -377,6 +474,12 @@ function buildHistoryQueryLines(query) {
     return lines.join('');
 }
 
+/**
+ * 应用某条历史查询条件。
+ *
+ * 用户点击“使用这组条件”后，表单会被回填到当时的查询状态，但不会自动触发查询，
+ * 这样用户仍然可以微调条件后再提交。
+ */
 function applyHistoryEntry(index) {
     const entry = state.searchLogs[index];
     if (!entry || !entry.query) {
@@ -389,6 +492,11 @@ function applyHistoryEntry(index) {
     setMessage('已回填历史查询条件，可直接提交重新查询。', 'success');
 }
 
+/**
+ * 按历史记录中的查询参数回填整个表单。
+ *
+ * 回填顺序必须遵循级联关系，从类别开始逐层触发 change 逻辑，否则后续下拉框还没准备好。
+ */
 function populateFormFromQuery(query) {
     categorySelect.value = query.category || '';
     handleCategoryChange();
@@ -407,6 +515,9 @@ function populateFormFromQuery(query) {
     measurementRequirementInput.value = query.measurement_requirement || '';
 }
 
+/**
+ * 把日志中的 ISO 时间格式化为中文本地时间字符串。
+ */
 function formatHistoryTime(value) {
     if (!value) {
         return '未知时间';
@@ -420,6 +531,12 @@ function formatHistoryTime(value) {
     return date.toLocaleString('zh-CN', { hour12: false });
 }
 
+/**
+ * 对文本做最基本的 HTML 转义。
+ *
+ * 历史记录和结果卡片中有一部分内容通过 innerHTML 渲染，因此需要手动转义，
+ * 避免用户输入的关键字或日志字段破坏页面结构。
+ */
 function escapeHtml(value) {
     return String(value)
         .replace(/&/g, '&amp;')
@@ -429,11 +546,19 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+/**
+ * 清空顶部消息栏并隐藏。
+ */
 function clearMessage() {
     messageBar.textContent = '';
     messageBar.className = 'message-bar hidden';
 }
 
+/**
+ * 把一组选项填充到指定下拉框。
+ *
+ * 每次填充前都会先重置为占位项，避免旧选项残留。
+ */
 function populateSelect(selectElement, items, placeholder) {
     resetSelect(selectElement, placeholder);
     items.forEach(item => {
@@ -444,6 +569,9 @@ function populateSelect(selectElement, items, placeholder) {
     });
 }
 
+/**
+ * 重置下拉框，只保留一个占位选项。
+ */
 function resetSelect(selectElement, placeholder) {
     selectElement.innerHTML = '';
     const option = document.createElement('option');
@@ -452,6 +580,11 @@ function resetSelect(selectElement, placeholder) {
     selectElement.appendChild(option);
 }
 
+/**
+ * 把后端返回的数据结构转换成前端现有渲染逻辑所需的字段形态。
+ *
+ * 前端沿用了更接近原始表结构的 fields 形式，因此这里承担一次适配层作用。
+ */
 function transformRecords(records) {
     return (records || []).map(record => ({
         record_id: record.record_id || '',
@@ -473,6 +606,11 @@ function transformRecords(records) {
     }));
 }
 
+/**
+ * 把图片字段统一转换为数组形式。
+ *
+ * 这样渲染层可以始终按“附件列表”的方式读取，而不用关心后端传来的是空值、字符串还是数组。
+ */
 function toImageArray(imageValue) {
     if (!imageValue) {
         return [];
@@ -514,6 +652,12 @@ const UNIT_MAP = {
     '%': { factor: 1, dimension: 'generic', display: '%' }
 };
 
+/**
+ * 解析用户输入的测量对象要求范围。
+ *
+ * 输入示例：(5.4-5.7)mm、（10~12）mm。
+ * 解析后会得到原始区间、标准化单位、基准单位数值以及后续 MPE 判定所需的上限值。
+ */
 function parseMeasurementRequirement(input) {
     if (!input) {
         return null;
@@ -566,11 +710,19 @@ function parseMeasurementRequirement(input) {
     };
 }
 
+/**
+ * 当正则没有稳定识别到区间后的单位时，尝试从原始输入尾部补推单位。
+ */
 function inferUnitFromRange(input) {
     const unitMatch = input.match(/[a-zA-Z%μμΩ℃°\u4e00-\u9fa5]+\s*$/);
     return unitMatch ? unitMatch[0].trim() : '';
 }
 
+/**
+ * 统一不同写法的单位表示。
+ *
+ * 比如把 mv、MV、mV 统一成 mV，把 ohm/ω 等统一成 Ω，便于后续做单位换算。
+ */
 function normalizeDisplayUnit(unit) {
     if (!unit) {
         return '';
@@ -643,6 +795,9 @@ function normalizeDisplayUnit(unit) {
     return normalized;
 }
 
+/**
+ * 把显示单位转换为 UNIT_MAP 使用的查找键。
+ */
 function getUnitKey(unit) {
     if (!unit) {
         return '';
@@ -650,10 +805,18 @@ function getUnitKey(unit) {
     return normalizeDisplayUnit(unit).toLowerCase();
 }
 
+/**
+ * 获取某个单位对应的换算信息和量纲信息。
+ */
 function getUnitMeta(unit) {
     return UNIT_MAP[getUnitKey(unit)] || { factor: 1, dimension: 'generic', display: normalizeDisplayUnit(unit) };
 }
 
+/**
+ * 把某个单位下的数值换算到基准单位。
+ *
+ * 例如 mm 会换算到 m，g 会换算到 kg。这样不同单位的值才能直接比较。
+ */
 function toBaseUnit(value, unit) {
     if (!Number.isFinite(value)) {
         return null;
@@ -662,6 +825,9 @@ function toBaseUnit(value, unit) {
     return value * meta.factor;
 }
 
+/**
+ * 把基准单位数值还原到指定显示单位。
+ */
 function fromBaseUnit(value, unit) {
     if (!Number.isFinite(value)) {
         return null;
@@ -670,6 +836,12 @@ function fromBaseUnit(value, unit) {
     return meta.factor === 0 ? null : value / meta.factor;
 }
 
+/**
+ * 从设备字段里解析“数值 + 单位”。
+ *
+ * 设备数据中的测量上下限和误差公式不一定格式完全一致，这个函数负责把它们统一拆成
+ * 数值、单位、标准化数值和量纲，供后续计算复用。
+ */
 function parseValueWithUnit(value, fallbackUnit) {
     if (value === undefined || value === null || value === '') {
         return { value: null, unit: normalizeDisplayUnit(fallbackUnit || ''), normalizedValue: null, dimension: getUnitMeta(fallbackUnit || '').dimension };
@@ -702,6 +874,9 @@ function parseValueWithUnit(value, fallbackUnit) {
     };
 }
 
+/**
+ * 读取设备的测量上下限并换算成统一结构。
+ */
 function getDeviceRange(record, fallbackUnit) {
     const minInfo = parseValueWithUnit(record.fields.测量下限, fallbackUnit);
     const maxInfo = parseValueWithUnit(record.fields.测量上限, fallbackUnit);
@@ -715,6 +890,11 @@ function getDeviceRange(record, fallbackUnit) {
     };
 }
 
+/**
+ * 归一化 MPE 公式文本。
+ *
+ * 数据源中的符号可能混用全角、半角和不同乘号写法，先做清洗能显著降低后续公式匹配复杂度。
+ */
 function normalizeFormulaText(value) {
     return String(value || '')
         .replace(/（/g, '(')
@@ -728,11 +908,19 @@ function normalizeFormulaText(value) {
         .replace(/\s+/g, '');
 }
 
+/**
+ * 从文本中提取百分比数值。
+ */
 function extractPercent(text) {
     const match = text.match(/(-?\d+(?:\.\d+)?)%/);
     return match ? Number(match[1]) : null;
 }
 
+/**
+ * 统一构造 MPE 计算结果对象。
+ *
+ * 不同公式解析函数都会返回这类结构，便于筛选逻辑和渲染逻辑使用同一套字段。
+ */
 function buildCalculatedMpeResult(value, displayUnit, expression, requirement) {
     if (!Number.isFinite(value)) {
         return null;
@@ -749,6 +937,11 @@ function buildCalculatedMpeResult(value, displayUnit, expression, requirement) {
     };
 }
 
+/**
+ * 解析“百分比示值 + 固定常数”类公式。
+ *
+ * 例如：0.05%示值+0.01mm。
+ */
 function calculateByReadingPlusConstant(formula, requirement) {
     const match = formula.match(/(-?\d+(?:\.\d+)?)%示值\+(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)/i);
     if (!match) {
@@ -774,6 +967,11 @@ function calculateByReadingPlusConstant(formula, requirement) {
     );
 }
 
+/**
+ * 解析“百分比示值 + 百分比满量程”类公式。
+ *
+ * 例如：0.02%示值+0.01%FS。
+ */
 function calculateByReadingPlusFullScalePercent(formula, requirement, deviceRange) {
     const match = formula.match(/(-?\d+(?:\.\d+)?)%示值\+(-?\d+(?:\.\d+)?)%(?:最大量程|满量程|FS)/i);
     if (!match) {
@@ -798,6 +996,11 @@ function calculateByReadingPlusFullScalePercent(formula, requirement, deviceRang
     );
 }
 
+/**
+ * 解析“仅按示值百分比计算”的公式。
+ *
+ * 支持两种常见写法：带“示值”字样的公式，以及直接写成 ±0.1% 这样的简写。
+ */
 function calculateByPercentOfReading(formula, requirement) {
     if (/示值/.test(formula)) {
         const match = formula.match(/(-?\d+(?:\.\d+)?)%示值/i);
@@ -841,6 +1044,11 @@ function calculateByPercentOfReading(formula, requirement) {
     return null;
 }
 
+/**
+ * 解析温度类设备常见的 MPE 公式。
+ *
+ * 当前支持常数加 |t| 项，以及系数乘 t 的规则。
+ */
 function calculateTemperatureMpe(formula, requirement) {
     const absTFormula = formula.match(/\(?(-?\d+(?:\.\d+)?)\+(-?\d+(?:\.\d+)?)\*\|?t\|?\)?/i);
     if (absTFormula) {
@@ -872,6 +1080,9 @@ function calculateTemperatureMpe(formula, requirement) {
     return null;
 }
 
+/**
+ * 解析力学类中“X 级”对应的满量程百分比误差。
+ */
 function calculateMechanicalClassMpe(formula, requirement, deviceRange) {
     const classLevelMatch = formula.match(/(-?\d+(?:\.\d+)?)级/);
     if (!classLevelMatch) {
@@ -894,6 +1105,11 @@ function calculateMechanicalClassMpe(formula, requirement, deviceRange) {
     );
 }
 
+/**
+ * 解析 II / III 级天平等分级规则。
+ *
+ * 这类规则不是简单百分比，而是按质量区间对应固定 MPE，需要单独分段判断。
+ */
 function calculateMechanicalScaleClass(formula, requirement) {
     if (!/^(II|III)$/i.test(formula)) {
         return null;
@@ -941,6 +1157,9 @@ function calculateMechanicalScaleClass(formula, requirement) {
     );
 }
 
+/**
+ * 解析“百分比满量程”公式，例如 0.05%FS。
+ */
 function calculateFullScalePercent(formula, requirement, deviceRange) {
     const match = formula.match(/(-?\d+(?:\.\d+)?)%FS/i);
     if (!match) {
@@ -963,6 +1182,11 @@ function calculateFullScalePercent(formula, requirement, deviceRange) {
     );
 }
 
+/**
+ * 解析直接给出固定误差值的公式。
+ *
+ * 例如：±0.02mm。
+ */
 function calculateDirectNumericMpe(formula, requirement) {
     const match = formula.match(/±?(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)?/);
     if (!match) {
@@ -983,6 +1207,14 @@ function calculateDirectNumericMpe(formula, requirement) {
     );
 }
 
+/**
+ * 根据设备类别和 MPE 原始文本选择合适的公式解析器。
+ *
+ * 这个函数相当于“规则分发中心”：
+ * 1. 先根据一级分类挂载类别特有规则。
+ * 2. 再尝试通用规则。
+ * 3. 返回第一个成功解析出的 MPE 结果。
+ */
 function calculateDeviceMpe(record, requirement, deviceRange) {
     const rawFormula = record && record.fields ? record.fields.MPE : '';
     const formula = normalizeFormulaText(rawFormula);
@@ -1020,6 +1252,11 @@ function calculateDeviceMpe(record, requirement, deviceRange) {
     return null;
 }
 
+/**
+ * 以适合页面展示的方式格式化数字。
+ *
+ * 这里统一保留到最多 6 位小数，并去掉多余尾零。
+ */
 function formatNumber(value) {
     if (!Number.isFinite(value)) {
         return '无';
@@ -1027,6 +1264,9 @@ function formatNumber(value) {
     return Number(value.toFixed(6)).toString();
 }
 
+/**
+ * 把测量区间对象格式化成可读文本。
+ */
 function formatRange(requirement) {
     if (!requirement) {
         return '无';
@@ -1036,6 +1276,11 @@ function formatRange(requirement) {
     return `(${formatNumber(requirement.min)}-${formatNumber(requirement.max)})${unitSuffix}`;
 }
 
+/**
+ * 按“设备名称 + 型号”合并记录，并聚合厂家。
+ *
+ * 同一型号可能有多个厂家，页面希望把它们展示在同一张卡片中，减少重复条目。
+ */
 function mergeRecordsByEquipmentAndModel(records) {
     const merged = {};
 
@@ -1063,6 +1308,11 @@ function mergeRecordsByEquipmentAndModel(records) {
     }));
 }
 
+/**
+ * 渲染结果区并切换页面视图。
+ *
+ * 提交后会隐藏表单、显示结果卡片；若没有结果则展示对应模式下的空状态说明。
+ */
 function displayResults(formData, records) {
     const resultsList = document.getElementById('resultsList');
     resultsList.innerHTML = '';
@@ -1092,6 +1342,9 @@ function displayResults(formData, records) {
     document.getElementById('resultContainer').style.display = 'block';
 }
 
+/**
+ * 生成技术筛选模式下的结果摘要卡片 HTML。
+ */
 function buildMeasurementSummary(requirement) {
     const unitSuffix = requirement && requirement.unit ? ` ${requirement.unit}` : '';
     return `
@@ -1110,6 +1363,9 @@ function buildMeasurementSummary(requirement) {
     `;
 }
 
+/**
+ * 生成普通条件查询模式下的结果摘要卡片 HTML。
+ */
 function buildBrowseSummary(formData, total) {
     const conditions = [
         ['类别', formData.category],
@@ -1137,6 +1393,11 @@ function buildBrowseSummary(formData, total) {
     `;
 }
 
+/**
+ * 为单条设备记录创建结果卡片。
+ *
+ * 卡片会根据是否启用技术筛选，决定展示原始误差信息还是计算后的 MPE 结果。
+ */
 function createResultCard(formData, record, index) {
     let rangeText = '';
     if (record && record.fields.测量下限 && record.fields.测量上限) {
@@ -1214,6 +1475,9 @@ function createResultCard(formData, record, index) {
     return card;
 }
 
+/**
+ * 从结果页返回到查询表单。
+ */
 function backToForm() {
     document.getElementById('resultContainer').style.display = 'none';
     document.getElementById('formContainer').style.display = 'block';

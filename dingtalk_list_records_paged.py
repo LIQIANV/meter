@@ -1,6 +1,17 @@
+"""用于测试钉钉分页拉取接口的简化脚本。
+
+与 backend/scripts/sync_dingtalk_tools.py 相比，这个文件更像是早期验证 API
+ 调用链路的实验脚本：逻辑简单、配置写死、返回值也没有做结构化清洗。
+"""
+
 import requests
 
 def main(arg1,accessToken):
+    """按页拉取钉钉记录并返回原始结果字符串。
+
+    这里保留了最基础的分页请求过程，适合快速验证 accessToken 是否可用。
+    由于配置硬编码较多，它不适合直接作为生产同步脚本使用。
+    """
 
     access_token = accessToken
     base_id = "OG9lyrgJPzymk9NbUbPY31nDWzN67Mw4"

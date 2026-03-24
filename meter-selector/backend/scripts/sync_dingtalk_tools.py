@@ -1,3 +1,10 @@
+"""从钉钉多维表分页同步设备数据到本地 JSON 文件。
+
+这个脚本不属于 FastAPI 运行时的一部分，而是离线数据准备工具。后端接口
+读取的 tools.json 就是由它生成的，因此理解它有助于你把“数据源 -> 本地
+ 文件 -> FastAPI 接口 -> 前端页面”这条链路完整串起来。
+"""
+
 import json
 import logging
 import os
@@ -32,10 +39,15 @@ FIELD_ALIASES = {
 
 
 def configure_logging() -> None:
+    """初始化脚本日志格式。"""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
 def load_local_config() -> dict[str, Any]:
+    """读取本地同步配置文件。
+
+    如果 sync_config.json 不存在则返回空字典，表示后续完全依赖环境变量。
+    """
     if not CONFIG_FILE.exists():
         return {}
 
@@ -49,6 +61,10 @@ def load_local_config() -> dict[str, Any]:
 
 
 def get_required_setting(config: dict[str, Any], key: str, env_name: str) -> str:
+    """读取必填配置项，优先本地文件，其次环境变量。
+
+    这个顺序允许你在本地调试时用配置文件，在部署或自动化任务里用环境变量。
+    """
     value = config.get(key)
     if isinstance(value, str) and value.strip():
         return value.strip()
@@ -61,6 +77,7 @@ def get_required_setting(config: dict[str, Any], key: str, env_name: str) -> str
 
 
 def get_optional_setting(config: dict[str, Any], key: str, env_name: str, default: str = "") -> str:
+    """读取可选配置项，优先级与必填配置一致。"""
     value = config.get(key)
     if isinstance(value, str) and value.strip():
         return value.strip()
@@ -73,6 +90,10 @@ def get_optional_setting(config: dict[str, Any], key: str, env_name: str, defaul
 
 
 def fetch_access_token(app_key: str, app_secret: str, cookie: str = "") -> str:
+    """向钉钉开放平台申请 access_token。
+
+    该 token 是后续分页拉取多维表记录时所需的鉴权凭证。
+    """
     headers = {"Content-Type": "application/json"}
     if cookie:
         headers["Cookie"] = cookie
@@ -98,6 +119,11 @@ def list_records_paged(
     operator_id: str | None,
     cookie: str = "",
 ) -> list[dict[str, Any]]:
+    """分页拉取钉钉多维表记录。
+
+    这个函数封装了 nextToken 翻页过程，并对“nextToken 过期”的 400 响应做
+    一次兜底回退，避免长时间同步时直接失败。
+    """
     url = f"https://api.dingtalk.com/v1.0/notable/bases/{app_token}/sheets/{table_id}/records/list"
     headers = {
         "x-acs-dingtalk-access-token": access_token,
@@ -148,6 +174,11 @@ def list_records_paged(
 
 
 def stringify_value(value: Any) -> str:
+    """把不同形态的钉钉字段值统一转成字符串。
+
+    钉钉返回的字段可能是字符串、数字、对象、数组甚至附件结构。这里统一
+    做平铺，便于写入本地 JSON 并被后续 FastAPI 服务直接消费。
+    """
     if value is None:
         return ""
     if isinstance(value, str):
@@ -167,6 +198,7 @@ def stringify_value(value: Any) -> str:
 
 
 def extract_image_url(value: Any) -> str:
+    """从图片字段中提取首个可用图片地址。"""
     if isinstance(value, list):
         for item in value:
             if isinstance(item, dict) and item.get("url"):
@@ -180,6 +212,11 @@ def extract_image_url(value: Any) -> str:
 
 
 def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
+    """把原始钉钉记录转换为后端约定的数据结构。
+
+    这里负责字段名归一、缺省值兜底、图片提取，以及把原始 fields 保留下来
+    作为调试和后续扩展的原始数据来源。
+    """
     fields = record.get("fields", {}) or {}
     max_error = stringify_value(fields.get("最大允许误差") or fields.get("MPE") or fields.get("准确度"))
     accuracy = stringify_value(fields.get("准确度") or max_error)
@@ -208,6 +245,10 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_json_atomic(payload: dict[str, Any], target_file: Path) -> None:
+    """以原子写方式输出 JSON 文件。
+
+    先写临时文件再替换目标文件，可以避免脚本执行中断时留下半截 JSON。
+    """
     target_file.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile("w", delete=False, dir=target_file.parent, suffix=".tmp", encoding="utf-8") as temp_file:
         json.dump(payload, temp_file, ensure_ascii=False, indent=2)
@@ -216,6 +257,7 @@ def write_json_atomic(payload: dict[str, Any], target_file: Path) -> None:
 
 
 def build_payload(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """构造最终写入 tools.json 的整体载荷。"""
     normalized_records = [normalize_record(record) for record in records]
     return {
         "updated_at": datetime.now().isoformat(timespec="seconds"),
@@ -225,6 +267,11 @@ def build_payload(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def main() -> int:
+    """脚本主入口。
+
+    执行顺序是：读取配置 -> 申请 token -> 分页拉取记录 -> 归一化数据 -> 原子写盘。
+    返回整数退出码，便于任务计划程序或 CI 判断成功失败。
+    """
     configure_logging()
     try:
         config = load_local_config()

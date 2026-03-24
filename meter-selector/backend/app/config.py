@@ -1,3 +1,10 @@
+"""项目配置集中定义。
+
+这个文件把后端会用到的重要路径与应用级配置统一收口，避免在各个
+ 模块里重复拼接路径。当前项目没有引入复杂的环境配置体系，因此用
+ 一个简单的 Settings 类承载静态配置即可。
+"""
+
 from pathlib import Path
 
 
@@ -10,6 +17,13 @@ FRONTEND_DIR = PROJECT_DIR / "frontend"
 
 
 class Settings:
+    """应用运行时配置对象。
+
+    这里没有使用 pydantic-settings，而是用最小实现保存当前 MVP 所需的
+    常量配置，例如 API 前缀、数据文件位置、查询日志文件位置以及前端
+    静态资源目录。
+    """
+
     app_name = "Meter Selector MVP"
     api_prefix = "/api"
     data_file = DATA_FILE
