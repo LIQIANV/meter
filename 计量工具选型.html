@@ -1,0 +1,1316 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!-- 页面基础元信息 -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计量选型表单</title>
+    <style>
+        /* 全局重置：统一默认边距与盒模型 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* 页面主体：定义基础字体、背景和文字颜色 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        /* 通用内容容器：控制宽度、留白与卡片视觉 */
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 一级标题样式 */
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+        
+        /* 表单整体采用纵向布局，每一行单独控制标签与输入的对齐 */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        
+        /* 单个表单项改为单列堆叠：标签一行，输入控件一行 */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        
+        /* 表单标签样式 */
+        label {
+            margin-bottom: 0;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .form-hint {
+            margin-top: -2px;
+            color: #7f8c8d;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        /* 下拉框与输入框基础样式 */
+        select, input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        /* 输入控件聚焦高亮 */
+        select:focus, input[type="number"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+        
+        /* 隐藏 number 输入框在 WebKit 内核中的默认步进按钮 */
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        /* 提交按钮基础样式 */
+        .submit-btn {
+            width: 160px;
+            margin: 8px auto 0;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        /* 提交按钮悬停样式 */
+        .submit-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        /* 提交按钮按下反馈 */
+        .submit-btn:active {
+            transform: translateY(1px);
+        }
+        
+        /* 结果表格基础样式 */
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        /* 结果表格单元格样式 */
+        .result-table th,
+        .result-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        /* 结果表格表头样式 */
+        .result-table th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        /* 结果表格行悬停效果 */
+        .result-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        /* 应用场景区块外边距 */
+        .application-scenario {
+            margin-bottom: 30px;
+        }
+        
+        /* 应用场景标题样式 */
+        .application-scenario h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        /* 图片展示区块外边距 */
+        .image-display {
+            margin-bottom: 30px;
+        }
+        
+        /* 图片展示标题样式 */
+        .image-display h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        /* 图片展示样式：自适应宽度并加阴影 */
+        .image-display img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 结果列表网格布局 */
+        #resultsList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        /* 结果卡片基础样式 */
+        .result-card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        /* 结果卡片悬停效果 */
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* 结果卡片标题样式 */
+        .result-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .result-summary {
+            grid-column: 1 / -1;
+            padding: 16px 18px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #eef6ff 0%, #f8fbff 100%);
+            border: 1px solid #d8e9fb;
+            color: #2c3e50;
+        }
+
+        .result-summary p + p {
+            margin-top: 6px;
+        }
+        
+        /* 底部操作按钮布局 */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        /* 返回/确认按钮公共样式 */
+        .back-btn,
+        .confirm-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        /* 返回按钮默认状态 */
+        .back-btn {
+            background-color: #95a5a6;
+            color: white;
+        }
+        
+        /* 返回按钮悬停状态 */
+        .back-btn:hover {
+            background-color: #7f8c8d;
+        }
+        
+        /* 确认按钮默认状态 */
+        .confirm-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+        
+        /* 确认按钮悬停状态 */
+        .confirm-btn:hover {
+            background-color: #229954;
+        }
+        
+        /* 两类按钮按下反馈 */
+        .back-btn:active,
+        .confirm-btn:active {
+            transform: translateY(1px);
+        }
+        
+        /* 移动端适配：收窄容器并将按钮改为纵向堆叠 */
+        @media (max-width: 600px) {
+            .container {
+                margin: 20px;
+                padding: 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .submit-btn,
+            .back-btn,
+            .confirm-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f7fa; color: #333; line-height: 1.6; margin: 0;">
+    <!-- 表单区域：用于录入筛选条件 -->
+    <div class="container" id="formContainer" style="max-width: 800px; margin: 50px auto; padding: 30px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+        <h1 style="text-align: center; color: #2c3e50; margin: 0 0 30px; font-size: 24px;">计量选型表单</h1>
+        <form data-format="json" id="measurementForm" style="display: flex; flex-direction: column; gap: 18px;">
+            <!-- 类别选择 -->
+            <div class="form-group" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px;">
+                <label for="category" style="font-weight: 500; color: #555; font-size: 14px;">类别:</label>
+                <select name="category" id="category" required style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="">请选择类别</option>
+                    <option value="力学类" >力学类</option>
+                    <option value="长度类" selected>长度类</option>
+                    <option value="温度类" >温度类</option>
+                    <option value="电学类" >电学类</option>
+                </select>
+            </div>
+            
+            <!-- 设备名称选择（由类别联动） -->
+            <div class="form-group" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px;">
+                <label for="equipment_name" style="font-weight: 500; color: #555; font-size: 14px;">设备名称:</label>
+                <select name="equipment_name" id="equipment_name" required style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="">请先选择类别</option>
+                </select>
+            </div>
+            
+            <!-- 型号选择（由设备名称联动） -->
+            <div class="form-group" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px;">
+                <label for="model" style="font-weight: 500; color: #555; font-size: 14px;">型号:</label>
+                <select name="model" id="model" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="">请先选择设备名称</option>
+                </select>
+            </div>
+            
+            <!-- 最大允许误差/准确度输入 -->
+            <div class="form-group" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px;">
+                <label for="measurement_requirement" style="font-weight: 500; color: #555; font-size: 14px;">测量对象要求范围:</label>
+                <input type="text" name="measurement_requirement" id="measurement_requirement" placeholder="例如：(5.4-5.7)mm" required style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                <div class="form-hint" style="color: #7f8c8d; font-size: 12px; line-height: 1.6;">请输入区间范围，例如：(5.4-5.7)mm、(10~12)mm。系统将按区间长度除以 6 计算设备允许 MPE 上限。</div>
+            </div>
+            
+            <!-- 厂家选择（由型号联动） -->
+            <div class="form-group" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px;">
+                <label for="manufacturer" style="font-weight: 500; color: #555; font-size: 14px;">厂家:</label>
+                <select name="manufacturer" id="manufacturer" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="">请先选择型号</option>
+                </select>
+            </div>
+            
+            <!-- 表单提交按钮 -->
+            <button type="submit" class="submit-btn" data-size="small" data-variant="primary" style="width: 160px; margin: 8px auto 0; padding: 12px; background-color: #3498db; color: #fff; border: none; border-radius: 4px; font-size: 16px; font-weight: 500; cursor: pointer;">提交</button>
+        </form>
+    </div>
+    
+    <!-- 结果区域：提交后展示匹配设备列表 -->
+    <div class="container" id="resultContainer" style="display: none; max-width: 1200px; margin: 50px auto; padding: 30px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+        <h1 style="text-align: center; color: #2c3e50; margin: 0 0 30px; font-size: 24px;">选型结果</h1>
+        <!-- 动态注入多个结果卡片 -->
+        <div id="resultsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; align-items: start;"></div>
+        
+        <!-- 结果页操作按钮 -->
+        <div class="action-buttons" style="display: flex; gap: 10px; justify-content: center; margin-top: 30px;">
+            <button class="back-btn" onclick="backToForm()" style="padding: 10px 20px; border: none; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; background-color: #95a5a6; color: #fff;">重新选择</button>
+            <!-- <button class="confirm-btn" onclick="confirmSelection()">确认选型</button> -->
+        </div>
+    </div>
+    
+    <script>
+        // 原始数据：由外部模板变量注入
+        const inputData = {{#1770606468756.result#}};
+
+        // 将原始数组整理为级联结构：类别 -> 设备名称 -> 型号 -> 厂家数组
+        function generateCascadeData(data) {
+            const result = {};
+            data.forEach(item => {
+                item.records.forEach(record => {
+                    const category = record.fields.一级分类.name;
+                    const equipmentName = record.fields.名称;
+                    const model = record.fields.型号;
+                    const manufacturer = record.fields.生产厂家;
+                    if (!result[category]) {
+                        result[category] = {};
+                    }
+                    if (!result[category][equipmentName]) {
+                        result[category][equipmentName] = {};
+                    }
+                    if (!result[category][equipmentName][model]) {
+                        result[category][equipmentName][model] = [];
+                    }
+                    if (!result[category][equipmentName][model].includes(manufacturer)) {
+                        result[category][equipmentName][model].push(manufacturer);
+                    }
+                });
+            });
+            
+            return result;
+        }
+        
+        // 生成用于联动下拉框的数据源
+        const cascadeData = generateCascadeData(inputData);
+        
+        // 缓存常用下拉框节点，避免重复查询 DOM
+        const categorySelect = document.getElementById('category');
+        const equipmentNameSelect = document.getElementById('equipment_name');
+        const modelSelect = document.getElementById('model');
+        const manufacturerSelect = document.getElementById('manufacturer');
+        const measurementRequirementInput = document.getElementById('measurement_requirement');
+        
+        // 页面初始化：根据默认值触发联动，回显历史选择
+        window.onload = function() {
+            const defaultCategory = "{{#1768993761387.category#}}";
+            const defaultEquipment = "{{#1768993761387.equipment_name#}}";
+            if (defaultCategory) {
+                categorySelect.dispatchEvent(new Event('change'));
+                setTimeout(() => {
+                    if (defaultEquipment) {
+                        equipmentNameSelect.value = defaultEquipment;
+                        equipmentNameSelect.dispatchEvent(new Event('change'));
+                    }
+                }, 100);
+            }
+        }
+
+        // 监听类别变化：刷新设备名称，并重置后续联动项
+        categorySelect.addEventListener('change', function() {
+            const selectedCategory = this.value;
+            
+            equipmentNameSelect.innerHTML = '<option value="">请选择设备名称</option>';
+            modelSelect.innerHTML = '<option value="">请先选择设备名称</option>';
+            manufacturerSelect.innerHTML = '<option value="">请先选择型号</option>';
+            
+            if (selectedCategory) {
+                const equipmentNames = Object.keys(cascadeData[selectedCategory]);
+                equipmentNames.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    equipmentNameSelect.appendChild(option);
+                });
+            }
+        });
+        
+        // 监听设备名称变化：刷新型号，并重置厂家
+        equipmentNameSelect.addEventListener('change', function() {
+            const selectedCategory = categorySelect.value;
+            const selectedEquipment = this.value;
+            
+            modelSelect.innerHTML = '<option value="">请选择型号</option>';
+            manufacturerSelect.innerHTML = '<option value="">请先选择型号</option>';
+            
+            if (selectedCategory && selectedEquipment) {
+                const models = Object.keys(cascadeData[selectedCategory][selectedEquipment]);
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    modelSelect.appendChild(option);
+                });
+            }
+        });
+
+        // 监听型号变化：刷新厂家列表
+        modelSelect.addEventListener('change', function() {
+            const selectedCategory = categorySelect.value;
+            const selectedEquipment = equipmentNameSelect.value;
+            const selectedModel = this.value;
+            
+            manufacturerSelect.innerHTML = '<option value="">请选择厂家</option>';
+            
+            if (selectedCategory && selectedEquipment && selectedModel) {
+                const manufacturers = cascadeData[selectedCategory][selectedEquipment][selectedModel];
+                manufacturers.forEach(manufacturer => {
+                    const option = document.createElement('option');
+                    option.value = manufacturer;
+                    option.textContent = manufacturer;
+                    manufacturerSelect.appendChild(option);
+                });
+            }
+        });
+        
+        const UNIT_MAP = {
+            '': { factor: 1, dimension: 'generic', display: '' },
+            'mm': { factor: 1e-3, dimension: 'length', display: 'mm' },
+            'cm': { factor: 1e-2, dimension: 'length', display: 'cm' },
+            'm': { factor: 1, dimension: 'length', display: 'm' },
+            'um': { factor: 1e-6, dimension: 'length', display: 'um' },
+            'μm': { factor: 1e-6, dimension: 'length', display: 'μm' },
+            'mg': { factor: 1e-6, dimension: 'mass', display: 'mg' },
+            'g': { factor: 1e-3, dimension: 'mass', display: 'g' },
+            'kg': { factor: 1, dimension: 'mass', display: 'kg' },
+            'ml': { factor: 1e-3, dimension: 'volume', display: 'mL' },
+            'l': { factor: 1, dimension: 'volume', display: 'L' },
+            '℃': { factor: 1, dimension: 'temperature', display: '℃' },
+            '°c': { factor: 1, dimension: 'temperature', display: '℃' },
+            'c': { factor: 1, dimension: 'temperature', display: '℃' },
+            'v': { factor: 1, dimension: 'voltage', display: 'V' },
+            'mv': { factor: 1e-3, dimension: 'voltage', display: 'mV' },
+            'kv': { factor: 1e3, dimension: 'voltage', display: 'kV' },
+            'a': { factor: 1, dimension: 'current', display: 'A' },
+            'ma': { factor: 1e-3, dimension: 'current', display: 'mA' },
+            'ua': { factor: 1e-6, dimension: 'current', display: 'uA' },
+            'μa': { factor: 1e-6, dimension: 'current', display: 'μA' },
+            'ω': { factor: 1, dimension: 'resistance', display: 'Ω' },
+            'kω': { factor: 1e3, dimension: 'resistance', display: 'kΩ' },
+            'mω': { factor: 1e6, dimension: 'resistance', display: 'MΩ' },
+            '%': { factor: 1, dimension: 'generic', display: '%' }
+        };
+
+        // 表单提交：按条件筛选记录，合并同型号多厂家后展示
+        document.getElementById('measurementForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const measurementRequirement = parseMeasurementRequirement(measurementRequirementInput.value);
+            if (!measurementRequirement) {
+                alert('测量对象要求范围格式无效，请输入类似 (5.4-5.7)mm 或 （10~12）mm 的区间。');
+                measurementRequirementInput.focus();
+                return;
+            }
+            
+            // 收集表单输入
+            const formData = {
+                category: categorySelect.value,
+                equipment_name: equipmentNameSelect.value,
+                model: modelSelect.value,
+                measurement_requirement: measurementRequirementInput.value,
+                measurement_requirement_parsed: measurementRequirement,
+                manufacturer: manufacturerSelect.value
+            };
+            
+            // 从原始记录中按已选条件筛出候选项
+            const selectedRecords = [];
+            inputData.forEach(item => {
+                item.records.forEach(record => {
+                    if (formData.category && record.fields.一级分类 && record.fields.一级分类.name !== formData.category) {
+                        return;
+                    }
+                    if (record.fields.名称 === formData.equipment_name) {
+                        if (formData.model && record.fields.型号 !== formData.model) {
+                            return;
+                        }
+                        if (formData.manufacturer && record.fields.生产厂家 !== formData.manufacturer) {
+                            return;
+                        }
+
+                        const deviceRange = getDeviceRange(record, measurementRequirement.unit);
+                        const deviceRangeMin = deviceRange.minBase;
+                        const deviceRangeMax = deviceRange.maxBase;
+                        if (
+                            deviceRangeMin === null ||
+                            deviceRangeMax === null ||
+                            measurementRequirement.minBase < deviceRangeMin ||
+                            measurementRequirement.maxBase > deviceRangeMax
+                        ) {
+                            return;
+                        }
+
+                        const computedMpe = calculateDeviceMpe(record, measurementRequirement, deviceRange);
+                        if (!computedMpe || computedMpe.normalizedValue === null || computedMpe.normalizedValue > measurementRequirement.mpeLimitBase) {
+                            return;
+                        }
+
+                        selectedRecords.push({
+                            ...record,
+                            computedMpe,
+                            computedRange: deviceRange
+                        });
+                    }
+                });
+            });
+            
+            // 合并同名同型号记录中的厂家字段
+            // 经济性原则在这里实现：对已筛选结果按器具自身 MPE 从大到小排序。
+            // MPE 越大越靠前，表示在满足技术原则的前提下优先展示误差范围更大的器具。
+                const mergedRecords = mergeRecordsByEquipmentAndModel(selectedRecords).sort((left, right) => {
+                    const leftMpe = left.computedMpe ? left.computedMpe.normalizedValue : null;
+                    const rightMpe = right.computedMpe ? right.computedMpe.normalizedValue : null;
+
+                    if (leftMpe === null && rightMpe === null) {
+                        return 0;
+                    }
+                    if (leftMpe === null) {
+                        return 1;
+                    }
+                    if (rightMpe === null) {
+                        return -1;
+                    }
+
+                    return rightMpe - leftMpe;
+                });
+            
+            // 将筛选结果渲染到结果页
+            displayResults(formData, mergedRecords);
+        });
+
+        function parseMeasurementRequirement(input) {
+            if (!input) {
+                return null;
+            }
+
+            const normalized = input
+                .replace(/（/g, '(')
+                .replace(/）/g, ')')
+                .replace(/～/g, '~')
+                .replace(/—/g, '-')
+                .replace(/–/g, '-')
+                .replace(/\s+/g, '')
+                .toLowerCase();
+
+            const match = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*[-~]\s*(-?\d+(?:\.\d+)?)\)?([a-z%μμ\u4e00-\u9fa5]*)?/i);
+            if (!match) {
+                return null;
+            }
+
+            const firstValue = Number(match[1]);
+            const secondValue = Number(match[2]);
+            if (!Number.isFinite(firstValue) || !Number.isFinite(secondValue) || secondValue <= firstValue) {
+                return null;
+            }
+
+            const rawUnit = (match[3] || '').trim();
+            const unit = normalizeDisplayUnit(rawUnit || inferUnitFromRange(input));
+            const unitMeta = getUnitMeta(unit);
+            const intervalLength = secondValue - firstValue;
+            const midpoint = (firstValue + secondValue) / 2;
+            const minBase = toBaseUnit(firstValue, unit);
+            const maxBase = toBaseUnit(secondValue, unit);
+            const intervalLengthBase = maxBase - minBase;
+
+            return {
+                min: firstValue,
+                max: secondValue,
+                unit,
+                dimension: unitMeta.dimension,
+                intervalLength,
+                midpoint,
+                absMidpoint: Math.abs(midpoint),
+                minBase,
+                maxBase,
+                midpointBase: toBaseUnit(midpoint, unit),
+                absMidpointBase: Math.abs(toBaseUnit(midpoint, unit)),
+                intervalLengthBase,
+                mpeLimit: intervalLength / 6,
+                mpeLimitBase: intervalLengthBase / 6
+            };
+        }
+
+        function inferUnitFromRange(input) {
+            const unitMatch = input.match(/[a-zA-Z%μμΩ℃°\u4e00-\u9fa5]+\s*$/);
+            return unitMatch ? unitMatch[0].trim() : '';
+        }
+
+        function normalizeDisplayUnit(unit) {
+            if (!unit) {
+                return '';
+            }
+
+            const normalized = String(unit)
+                .replace(/\s+/g, '')
+                .replace(/µ/g, 'μ')
+                .replace(/ohm/ig, 'Ω')
+                .replace(/ω/g, 'Ω');
+
+            if (/^mv$/i.test(normalized)) {
+                return 'mV';
+            }
+            if (/^kv$/i.test(normalized)) {
+                return 'kV';
+            }
+            if (/^v$/i.test(normalized)) {
+                return 'V';
+            }
+            if (/^ma$/i.test(normalized)) {
+                return 'mA';
+            }
+            if (/^ua$/i.test(normalized) || /^μa$/i.test(normalized)) {
+                return 'μA';
+            }
+            if (/^a$/i.test(normalized)) {
+                return 'A';
+            }
+            if (/^mω$/i.test(normalized) && normalized.includes('Ω')) {
+                return 'MΩ';
+            }
+            if (/^kω$/i.test(normalized)) {
+                return 'kΩ';
+            }
+            if (/^ω$/i.test(normalized)) {
+                return 'Ω';
+            }
+            if (/^ml$/i.test(normalized)) {
+                return 'mL';
+            }
+            if (/^l$/i.test(normalized)) {
+                return 'L';
+            }
+            if (/^(°c|℃|c)$/i.test(normalized)) {
+                return '℃';
+            }
+            if (/^um$/i.test(normalized) || /^μm$/i.test(normalized)) {
+                return 'μm';
+            }
+            if (/^mm$/i.test(normalized)) {
+                return 'mm';
+            }
+            if (/^cm$/i.test(normalized)) {
+                return 'cm';
+            }
+            if (/^m$/i.test(normalized)) {
+                return 'm';
+            }
+            if (/^mg$/i.test(normalized)) {
+                return 'mg';
+            }
+            if (/^kg$/i.test(normalized)) {
+                return 'kg';
+            }
+            if (/^g$/i.test(normalized)) {
+                return 'g';
+            }
+
+            return normalized;
+        }
+
+        function getUnitKey(unit) {
+            if (!unit) {
+                return '';
+            }
+
+            return normalizeDisplayUnit(unit).toLowerCase();
+        }
+
+        function getUnitMeta(unit) {
+            return UNIT_MAP[getUnitKey(unit)] || { factor: 1, dimension: 'generic', display: normalizeDisplayUnit(unit) };
+        }
+
+        function toBaseUnit(value, unit) {
+            if (!Number.isFinite(value)) {
+                return null;
+            }
+
+            const meta = getUnitMeta(unit);
+            return value * meta.factor;
+        }
+
+        function fromBaseUnit(value, unit) {
+            if (!Number.isFinite(value)) {
+                return null;
+            }
+
+            const meta = getUnitMeta(unit);
+            return meta.factor === 0 ? null : value / meta.factor;
+        }
+
+        function parseValueWithUnit(value, fallbackUnit) {
+            if (value === undefined || value === null || value === '') {
+                return { value: null, unit: normalizeDisplayUnit(fallbackUnit || ''), normalizedValue: null, dimension: getUnitMeta(fallbackUnit || '').dimension };
+            }
+
+            if (typeof value === 'number') {
+                const resolvedUnit = normalizeDisplayUnit(fallbackUnit || '');
+                return {
+                    value,
+                    unit: resolvedUnit,
+                    normalizedValue: toBaseUnit(value, resolvedUnit),
+                    dimension: getUnitMeta(resolvedUnit).dimension
+                };
+            }
+
+            const text = String(value).trim();
+            const match = text.match(/(-?\d+(?:\.\d+)?)(?:\s*)([a-zA-ZμμΩ℃°]+)?/);
+            if (!match) {
+                const resolvedUnit = normalizeDisplayUnit(fallbackUnit || '');
+                return { value: null, unit: resolvedUnit, normalizedValue: null, dimension: getUnitMeta(resolvedUnit).dimension };
+            }
+
+            const parsedValue = Number(match[1]);
+            const parsedUnit = normalizeDisplayUnit(match[2] || fallbackUnit || '');
+            return {
+                value: Number.isFinite(parsedValue) ? parsedValue : null,
+                unit: parsedUnit,
+                normalizedValue: Number.isFinite(parsedValue) ? toBaseUnit(parsedValue, parsedUnit) : null,
+                dimension: getUnitMeta(parsedUnit).dimension
+            };
+        }
+
+        function getDeviceRange(record, fallbackUnit) {
+            const minInfo = parseValueWithUnit(record.fields.测量下限, fallbackUnit);
+            const maxInfo = parseValueWithUnit(record.fields.测量上限, fallbackUnit);
+
+            return {
+                min: minInfo.value,
+                max: maxInfo.value,
+                unit: maxInfo.unit || minInfo.unit || normalizeDisplayUnit(fallbackUnit || ''),
+                minBase: minInfo.normalizedValue,
+                maxBase: maxInfo.normalizedValue
+            };
+        }
+
+        function normalizeFormulaText(value) {
+            return String(value || '')
+                .replace(/（/g, '(')
+                .replace(/）/g, ')')
+                .replace(/％/g, '%')
+                .replace(/×/g, '*')
+                .replace(/X/g, '*')
+                .replace(/示值/g, '示值')
+                .replace(/满量程/g, '满量程')
+                .replace(/最大量程/g, '最大量程')
+                .replace(/\s+/g, '');
+        }
+
+        function extractPercent(text) {
+            const match = text.match(/(-?\d+(?:\.\d+)?)%/);
+            return match ? Number(match[1]) : null;
+        }
+
+        function buildCalculatedMpeResult(value, displayUnit, expression, requirement) {
+            if (!Number.isFinite(value)) {
+                return null;
+            }
+
+            const resolvedUnit = normalizeDisplayUnit(displayUnit || requirement.unit || '');
+            const normalizedValue = toBaseUnit(value, resolvedUnit);
+            return {
+                value,
+                unit: resolvedUnit,
+                normalizedValue,
+                displayValue: `${formatNumber(value)}${resolvedUnit ? ' ' + resolvedUnit : ''}`,
+                expression
+            };
+        }
+
+        function calculateByReadingPlusConstant(formula, requirement) {
+            const match = formula.match(/(-?\d+(?:\.\d+)?)%示值\+(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)/i);
+            if (!match) {
+                return null;
+            }
+
+            const readingPercent = Number(match[1]);
+            const constantValue = Number(match[2]);
+            const constantUnit = normalizeDisplayUnit(match[3]);
+            const displayUnit = requirement.unit || constantUnit;
+            const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
+            const constantInDisplayUnit = fromBaseUnit(toBaseUnit(constantValue, constantUnit), displayUnit);
+            if (!Number.isFinite(readingInDisplayUnit) || !Number.isFinite(constantInDisplayUnit)) {
+                return null;
+            }
+
+            const result = Math.abs(readingInDisplayUnit) * readingPercent / 100 + Math.abs(constantInDisplayUnit);
+            return buildCalculatedMpeResult(
+                result,
+                displayUnit,
+                `±(${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(readingPercent)}% + ${formatNumber(Math.abs(constantInDisplayUnit))}) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                requirement
+            );
+        }
+
+        function calculateByReadingPlusFullScalePercent(formula, requirement, deviceRange) {
+            const match = formula.match(/(-?\d+(?:\.\d+)?)%示值\+(-?\d+(?:\.\d+)?)%(?:最大量程|满量程|FS)/i);
+            if (!match) {
+                return null;
+            }
+
+            const readingPercent = Number(match[1]);
+            const fullScalePercent = Number(match[2]);
+            const displayUnit = requirement.unit || deviceRange.unit;
+            const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
+            const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit);
+            if (!Number.isFinite(readingInDisplayUnit) || !Number.isFinite(fullScaleInDisplayUnit)) {
+                return null;
+            }
+
+            const result = Math.abs(readingInDisplayUnit) * readingPercent / 100 + Math.abs(fullScaleInDisplayUnit) * fullScalePercent / 100;
+            return buildCalculatedMpeResult(
+                result,
+                displayUnit,
+                `±(${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(readingPercent)}% + ${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(fullScalePercent)}%) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                requirement
+            );
+        }
+
+        function calculateByPercentOfReading(formula, requirement) {
+            if (/示值/.test(formula)) {
+                const match = formula.match(/(-?\d+(?:\.\d+)?)%示值/i);
+                if (!match) {
+                    return null;
+                }
+
+                const percent = Number(match[1]);
+                const displayUnit = requirement.unit;
+                const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
+                if (!Number.isFinite(readingInDisplayUnit)) {
+                    return null;
+                }
+
+                const result = Math.abs(readingInDisplayUnit) * percent / 100;
+                return buildCalculatedMpeResult(
+                    result,
+                    displayUnit,
+                    `±${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                    requirement
+                );
+            }
+
+            if (/^±?-?\d+(?:\.\d+)?%$/i.test(formula)) {
+                const percent = extractPercent(formula);
+                const displayUnit = requirement.unit;
+                const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
+                if (!Number.isFinite(percent) || !Number.isFinite(readingInDisplayUnit)) {
+                    return null;
+                }
+
+                const result = Math.abs(readingInDisplayUnit) * percent / 100;
+                return buildCalculatedMpeResult(
+                    result,
+                    displayUnit,
+                    `±${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                    requirement
+                );
+            }
+
+            return null;
+        }
+
+        function calculateTemperatureMpe(formula, requirement) {
+            const absTFormula = formula.match(/\(?(-?\d+(?:\.\d+)?)\+(-?\d+(?:\.\d+)?)\*\|?t\|?\)?/i);
+            if (absTFormula) {
+                const constant = Number(absTFormula[1]);
+                const coefficient = Number(absTFormula[2]);
+                const tValue = Math.abs(requirement.midpoint);
+                const result = constant + coefficient * tValue;
+                return buildCalculatedMpeResult(
+                    result,
+                    requirement.unit || '℃',
+                    `±(${formatNumber(constant)} + ${formatNumber(coefficient)} × ${formatNumber(tValue)}) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, requirement.unit || '℃'))}`,
+                    requirement
+                );
+            }
+
+            const tFormula = formula.match(/(-?\d+(?:\.\d+)?)\*t/i);
+            if (tFormula) {
+                const coefficient = Number(tFormula[1]);
+                const tValue = requirement.midpoint;
+                const result = Math.abs(coefficient * tValue);
+                return buildCalculatedMpeResult(
+                    result,
+                    requirement.unit || '℃',
+                    `±${formatNumber(coefficient)} × ${formatNumber(tValue)} = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, requirement.unit || '℃'))}`,
+                    requirement
+                );
+            }
+
+            return null;
+        }
+
+        function calculateMechanicalClassMpe(formula, requirement, deviceRange) {
+            const classLevelMatch = formula.match(/(-?\d+(?:\.\d+)?)级/);
+            if (!classLevelMatch) {
+                return null;
+            }
+
+            const level = Number(classLevelMatch[1]);
+            const displayUnit = requirement.unit || deviceRange.unit;
+            const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit);
+            if (!Number.isFinite(fullScaleInDisplayUnit)) {
+                return null;
+            }
+
+            const result = Math.abs(fullScaleInDisplayUnit) * level / 100;
+            return buildCalculatedMpeResult(
+                result,
+                displayUnit,
+                `${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(level)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                requirement
+            );
+        }
+
+        function calculateMechanicalScaleClass(formula, requirement) {
+            if (!/^(II|III)$/i.test(formula)) {
+                return null;
+            }
+
+            const midValueBase = requirement.midpointBase;
+            const displayUnit = requirement.unit || 'g';
+            const className = formula.toUpperCase();
+            let resultInGram = null;
+
+            const mInGram = fromBaseUnit(midValueBase, 'g');
+            if (!Number.isFinite(mInGram)) {
+                return null;
+            }
+
+            if (className === 'III') {
+                if (mInGram >= 2 && mInGram <= 50) {
+                    resultInGram = 0.05;
+                } else if (mInGram > 50 && mInGram <= 200) {
+                    resultInGram = 0.1;
+                } else if (mInGram > 200 && mInGram <= 500) {
+                    resultInGram = 0.15;
+                }
+            }
+
+            if (className === 'II') {
+                if (mInGram >= 0.2 && mInGram <= 50) {
+                    resultInGram = 0.005;
+                } else if (mInGram > 50 && mInGram <= 200) {
+                    resultInGram = 0.01;
+                } else if (mInGram > 200 && mInGram <= 1020) {
+                    resultInGram = 0.015;
+                }
+            }
+
+            if (!Number.isFinite(resultInGram)) {
+                return null;
+            }
+
+            const resultInDisplayUnit = fromBaseUnit(toBaseUnit(resultInGram, 'g'), displayUnit);
+            return buildCalculatedMpeResult(
+                resultInDisplayUnit,
+                displayUnit,
+                `${className}级分段判定：m = ${formatNumber(mInGram)} g，MPE = ${formatNumber(resultInGram)} g ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                requirement
+            );
+        }
+
+        function calculateFullScalePercent(formula, requirement, deviceRange) {
+            const match = formula.match(/(-?\d+(?:\.\d+)?)%FS/i);
+            if (!match) {
+                return null;
+            }
+
+            const percent = Number(match[1]);
+            const displayUnit = requirement.unit || deviceRange.unit;
+            const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit);
+            if (!Number.isFinite(fullScaleInDisplayUnit)) {
+                return null;
+            }
+
+            const result = Math.abs(fullScaleInDisplayUnit) * percent / 100;
+            return buildCalculatedMpeResult(
+                result,
+                displayUnit,
+                `${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+                requirement
+            );
+        }
+
+        function calculateDirectNumericMpe(formula, requirement) {
+            const match = formula.match(/±?(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)?/);
+            if (!match) {
+                return null;
+            }
+
+            const value = Math.abs(Number(match[1]));
+            if (!Number.isFinite(value)) {
+                return null;
+            }
+
+            const formulaUnit = normalizeDisplayUnit(match[2] || requirement.unit || '');
+            return buildCalculatedMpeResult(
+                value,
+                formulaUnit,
+                `${formatNumber(value)}${formulaUnit ? ' ' + formulaUnit : ''} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, formulaUnit || requirement.unit || ''))}`,
+                requirement
+            );
+        }
+
+        function calculateDeviceMpe(record, requirement, deviceRange) {
+            const rawFormula = record && record.fields ? record.fields.MPE : '';
+            const formula = normalizeFormulaText(rawFormula);
+            const category = record && record.fields && record.fields.一级分类 ? record.fields.一级分类.name : '';
+
+            if (!formula) {
+                return null;
+            }
+
+            const resolvers = [];
+            if (category === '温度类') {
+                resolvers.push(() => calculateTemperatureMpe(formula, requirement));
+            }
+            if (category === '力学类') {
+                resolvers.push(() => calculateMechanicalScaleClass(formula, requirement));
+                resolvers.push(() => calculateMechanicalClassMpe(formula, requirement, deviceRange));
+            }
+
+            resolvers.push(() => calculateByReadingPlusFullScalePercent(formula, requirement, deviceRange));
+            resolvers.push(() => calculateByReadingPlusConstant(formula, requirement));
+            resolvers.push(() => calculateFullScalePercent(formula, requirement, deviceRange));
+            resolvers.push(() => calculateByPercentOfReading(formula, requirement));
+            resolvers.push(() => calculateDirectNumericMpe(formula, requirement));
+
+            for (const resolve of resolvers) {
+                const result = resolve();
+                if (result) {
+                    return {
+                        ...result,
+                        rawFormula: rawFormula || '无'
+                    };
+                }
+            }
+
+            return null;
+        }
+
+        function parseMpeValue(value) {
+            if (value === undefined || value === null || value === '') {
+                return null;
+            }
+
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? Math.abs(value) : null;
+            }
+
+            const matches = String(value).match(/-?\d+(?:\.\d+)?/g);
+            if (!matches || matches.length === 0) {
+                return null;
+            }
+
+            const numbers = matches
+                .map(item => Math.abs(Number(item)))
+                .filter(item => Number.isFinite(item));
+
+            if (numbers.length === 0) {
+                return null;
+            }
+
+            return Math.max(...numbers);
+        }
+
+        function parseNumericValue(value) {
+            if (value === undefined || value === null || value === '') {
+                return null;
+            }
+
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? value : null;
+            }
+
+            const match = String(value).match(/-?\d+(?:\.\d+)?/);
+            if (!match) {
+                return null;
+            }
+
+            const parsed = Number(match[0]);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function formatNumber(value) {
+            if (!Number.isFinite(value)) {
+                return '无';
+            }
+
+            return Number(value.toFixed(6)).toString();
+        }
+
+        function formatRange(requirement) {
+            if (!requirement) {
+                return '无';
+            }
+
+            const unitSuffix = requirement.unit ? ` ${requirement.unit}` : '';
+            return `(${formatNumber(requirement.min)}-${formatNumber(requirement.max)})${unitSuffix}`;
+        }
+        
+        // 合并同设备同型号记录：将多个厂家聚合为一个字符串
+        function mergeRecordsByEquipmentAndModel(records) {
+            const merged = {};
+            
+            records.forEach(record => {
+                const key = `${record.fields.名称}_${record.fields.型号}`;
+                
+                if (!merged[key]) {
+                    merged[key] = {
+                        ...record,
+                        fields: {
+                            ...record.fields,
+                            生产厂家: [record.fields.生产厂家]
+                        }
+                    };
+                } else {
+                    if (!merged[key].fields.生产厂家.includes(record.fields.生产厂家)) {
+                        merged[key].fields.生产厂家.push(record.fields.生产厂家);
+                    }
+                }
+            });
+            
+            return Object.values(merged).map(record => {
+                return {
+                    ...record,
+                    fields: {
+                        ...record.fields,
+                        生产厂家: record.fields.生产厂家.join('、')
+                    }
+                };
+            });
+        }
+        
+        // 结果渲染入口：生成卡片并切换显示区域
+        function displayResults(formData, records) {
+            const resultsList = document.getElementById('resultsList');
+            resultsList.innerHTML = '';
+
+            const requirement = formData.measurement_requirement_parsed;
+            const unitSuffix = requirement && requirement.unit ? ` ${requirement.unit}` : '';
+
+            const summaryCard = document.createElement('div');
+            summaryCard.className = 'result-summary';
+            summaryCard.style.cssText = 'grid-column: 1 / -1; padding: 20px 22px; border-radius: 12px; background: linear-gradient(135deg, #eef6ff 0%, #f8fbff 100%); border: 1px solid #d8e9fb; color: #2c3e50; box-shadow: 0 8px 24px rgba(44, 62, 80, 0.08);';
+            summaryCard.innerHTML = `
+                <p><strong>测量对象要求范围：</strong>${formatRange(requirement)}</p>
+                <p><strong>技术原则：</strong>设备计算 MPE 必须小于等于测量对象区间长度 ÷ 6。</p>
+                <p><strong>本次判定上限：</strong>${formatNumber(requirement.intervalLength)} ÷ 6 = ${formatNumber(requirement.mpeLimit)}${unitSuffix}</p>
+                <p><strong>MPE 计算方式：</strong>根据设备类别和 MPE 字段内容自动匹配公式，并在结果卡中展示具体计算式。</p>
+                <p><strong>量程原则：</strong>器具量程必须完整覆盖测量对象要求范围。</p>
+                <p><strong>经济性排序：</strong>在满足技术原则的前提下，按设备 MPE 从大到小排序，误差范围越大越靠前。</p>
+            `;
+            resultsList.appendChild(summaryCard);
+            
+            // 无匹配时显示提示卡片
+            if (records.length === 0) {
+                const noResult = document.createElement('div');
+                noResult.className = 'result-card';
+                noResult.style.cssText = 'grid-column: 1 / -1; max-width: 760px; width: 100%; margin: 0 auto; background-color: #fff8f7; border: 1px solid #f3d6d2; border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);';
+                noResult.innerHTML = '<h3>无匹配结果</h3><p>没有找到同时满足量程覆盖和 MPE 判定规则的设备记录。</p>';
+                resultsList.appendChild(noResult);
+            } else {
+                // 有匹配时逐条生成结果卡片
+                records.forEach((record, index) => {
+                    const resultCard = createResultCard(formData, record, index + 1);
+                    resultsList.appendChild(resultCard);
+                });
+            }
+            
+            // 切换到结果页面
+            document.getElementById('formContainer').style.display = 'none';
+            document.getElementById('resultContainer').style.display = 'block';
+        }
+        
+        // 构建单条结果卡片：填充量程、MPE、型号、厂家、应用场景与图片
+        function createResultCard(formData, record, index) {
+            let rangeText = '';
+            if (record && record.fields.测量下限 && record.fields.测量上限) {
+                rangeText = `${record.fields.测量下限}-${record.fields.测量上限}`;
+            }
+            
+            const requirement = formData.measurement_requirement_parsed;
+            const unitSuffix = requirement && requirement.unit ? ` ${requirement.unit}` : '';
+            const mpeText = record && record.computedMpe ? record.computedMpe.displayValue : '无';
+            const mpeFormulaText = record && record.fields.MPE ? String(record.fields.MPE) : '无';
+            const mpeExpression = record && record.computedMpe ? record.computedMpe.expression : '无';
+            
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.style.cssText = 'width: 100%; max-width: 560px; margin: 0 auto; background: #ffffff; border: 1px solid #e8edf3; border-radius: 14px; padding: 24px; box-shadow: 0 12px 28px rgba(31, 45, 61, 0.08);';
+            
+            card.innerHTML = `
+                <h3 style="color: #2c3e50; margin: 0 0 16px; font-size: 20px; border-bottom: 1px solid #e8edf3; padding-bottom: 12px;">选型 ${index}: ${record.fields.名称}</h3>
+                <table class="result-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                    <tr>
+                        <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; background-color: #f8fafc; font-weight: 600; color: #334155; width: 42%;">项目</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; background-color: #f8fafc; font-weight: 600; color: #334155;">参数</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">器具量程范围</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${rangeText || '无'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">测量对象要求范围</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${formatRange(requirement)}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">设备最大误差 (MPE)</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${mpeText}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">MPE 原始规则</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${mpeFormulaText}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">MPE 计算过程</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${mpeExpression}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">允许 MPE 上限</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${formatNumber(requirement.mpeLimit)}${unitSuffix}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">型号</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${record.fields.型号 || '无'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">生产厂家</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">${record.fields.生产厂家 || '无'}</td>
+                    </tr>
+                </table>
+                <div class="application-scenario" style="margin-bottom: 24px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 16px;">应用场景：</h3>
+                    <p>${record.fields.应用场景 || '无'}</p>
+                </div>
+                <div class="image-display" style="margin-bottom: 8px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 16px;">图片展示：</h3>
+                    <div>${record.fields.图片 && record.fields.图片.length > 0 ? 
+                        `<img src="${record.fields.图片[0].url}" alt="设备图片" style="max-width: 100%; height: auto; display: block; border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);">` : 
+                        '无图片'
+                    }</div>
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        // 从结果页返回表单页
+        function backToForm() {
+            document.getElementById('resultContainer').style.display = 'none';
+            document.getElementById('formContainer').style.display = 'block';
+        }
+        
+        // 预留确认动作（当前未启用）
+        /* function confirmSelection() {
+            alert('选型已确认！');
+        } */
+    </script>
+</body>
+</html>
+```

@@ -1,0 +1,9 @@
+{
+  "app_key": "请填写钉钉 appKey",
+  "app_secret": "请填写钉钉 appSecret",
+  "app_token": "请填写多维表 appToken",
+  "table_id": "请填写 tableId",
+  "operator_id": "可选，填写 operatorId",
+  "access_token_cookie": "可选，获取 access_token 时使用的 Cookie 头原文",
+  "records_cookie": "可选，拉取记录时使用的 Cookie 头原文"
+}
