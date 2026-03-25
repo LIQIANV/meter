@@ -48,6 +48,24 @@
 }
 ```
 
+## POST /api/sync
+
+手动触发一次钉钉数据同步，并刷新本地 tools.json。
+
+响应示例:
+
+```json
+{
+  "success": true,
+  "message": "同步成功",
+  "data": {
+    "updated_at": "2026-03-25T09:30:00",
+    "total": 559,
+    "data_file": "D:/Metering_Tools/meter-selector/backend/data/tools.json"
+  }
+}
+```
+
 响应示例:
 
 ```json

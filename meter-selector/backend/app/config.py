@@ -26,6 +26,7 @@ class Settings:
 
     app_name = "Meter Selector MVP"
     api_prefix = "/api"
+    base_dir = BASE_DIR
     data_file = DATA_FILE
     search_log_file = SEARCH_LOG_FILE
     frontend_dir = FRONTEND_DIR

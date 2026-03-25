@@ -20,6 +20,7 @@ from app.config import settings
 from app.routers.health import router as health_router
 from app.routers.options import router as options_router
 from app.routers.search import router as search_router
+from app.routers.sync import router as sync_router
 from app.services.data_loader import DataLoadError
 from app.utils.response import error_response
 
@@ -59,6 +60,7 @@ async def handle_validation_error(_: Request, exc: RequestValidationError) -> JS
 app.include_router(health_router)
 app.include_router(options_router)
 app.include_router(search_router)
+app.include_router(sync_router)
 
 frontend_dir = settings.frontend_dir
 if frontend_dir.exists():

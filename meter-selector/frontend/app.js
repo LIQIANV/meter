@@ -23,6 +23,7 @@ const manufacturerSelect = document.getElementById('manufacturer');
 const measurementRequirementInput = document.getElementById('measurement_requirement');
 const keywordInput = document.getElementById('keyword');
 const messageBar = document.getElementById('messageBar');
+const syncDataBtn = document.getElementById('syncDataBtn');
 const openHistoryBtn = document.getElementById('openHistoryBtn');
 const openHistoryBtnResult = document.getElementById('openHistoryBtnResult');
 const closeHistoryBtn = document.getElementById('closeHistoryBtn');
@@ -35,6 +36,7 @@ categorySelect.addEventListener('change', handleCategoryChange);
 subCategorySelect.addEventListener('change', handleSubCategoryChange);
 equipmentNameSelect.addEventListener('change', handleEquipmentChange);
 modelSelect.addEventListener('change', handleModelChange);
+syncDataBtn.addEventListener('click', handleSyncData);
 openHistoryBtn.addEventListener('click', openHistoryModal);
 openHistoryBtnResult.addEventListener('click', openHistoryModal);
 closeHistoryBtn.addEventListener('click', closeHistoryModal);
@@ -55,7 +57,21 @@ window.addEventListener('DOMContentLoaded', initializePage);
 async function initializePage() {
     try {
         setMessage('正在加载筛选数据...', 'info');
-        const [optionsResult, recordsResult, logsResult] = await Promise.all([
+        await loadPageData();
+
+        if (state.allRecords.length === 0) {
+            setMessage('当前本地数据为空，请先执行同步脚本。', 'info');
+            return;
+        }
+
+        clearMessage();
+    } catch (error) {
+        setMessage(error.message || '加载初始数据失败，请确认后端服务已经启动。', 'error');
+    }
+}
+
+async function loadPageData() {
+    const [optionsResult, recordsResult, logsResult] = await Promise.all([
             fetchJson(buildApiUrl('/options')),
             fetchJson(buildApiUrl('/search'), {
                 method: 'POST',
@@ -72,26 +88,38 @@ async function initializePage() {
             fetchJson(buildApiUrl('/search-logs?limit=12'))
         ]);
 
-        state.options = optionsResult.data;
-        state.allRecords = transformRecords(recordsResult.data.records);
-        state.cascadeData = generateCascadeData(state.allRecords);
-        state.searchLogs = logsResult.data.records || [];
-        renderHistoryList();
+    state.options = optionsResult.data;
+    state.allRecords = transformRecords(recordsResult.data.records);
+    state.cascadeData = generateCascadeData(state.allRecords);
+    state.searchLogs = logsResult.data.records || [];
+    renderHistoryList();
 
-        populateSelect(categorySelect, state.options.categories, '请选择类别');
-        resetSelect(subCategorySelect, '请先选择类别');
-        resetSelect(equipmentNameSelect, '请先选择二级分类');
-        resetSelect(modelSelect, '请先选择设备名称');
-        resetSelect(manufacturerSelect, '请先选择型号');
+    populateSelect(categorySelect, state.options.categories, '请选择类别');
+    resetSelect(subCategorySelect, '请先选择类别');
+    resetSelect(equipmentNameSelect, '请先选择二级分类');
+    resetSelect(modelSelect, '请先选择设备名称');
+    resetSelect(manufacturerSelect, '请先选择型号');
+}
 
-        if (state.allRecords.length === 0) {
-            setMessage('当前本地数据为空，请先执行同步脚本。', 'info');
-            return;
-        }
+async function handleSyncData() {
+    syncDataBtn.disabled = true;
+    const originalText = syncDataBtn.textContent;
+    syncDataBtn.textContent = '更新中...';
 
-        clearMessage();
+    try {
+        setMessage('正在同步钉钉数据，请稍候...', 'info');
+        const response = await fetchJson(buildApiUrl('/sync'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        await loadPageData();
+        setMessage(`数据更新成功，当前共 ${response.data.total} 条记录。`, 'success');
     } catch (error) {
-        setMessage(error.message || '加载初始数据失败，请确认后端服务已经启动。', 'error');
+        setMessage(error.message || '数据更新失败，请稍后重试。', 'error');
+    } finally {
+        syncDataBtn.disabled = false;
+        syncDataBtn.textContent = originalText;
     }
 }
 
