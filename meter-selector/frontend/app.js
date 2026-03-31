@@ -5,16 +5,21 @@
  * 避免不同函数之间通过 DOM 反复读取同一份业务数据。
  */
 const state = {
+    queryMetadata: null,
+    fieldMetaByKey: {},
     options: null,
     allRecords: [],
     cascadeData: {},
-    searchLogs: []
+    searchLogs: [],
+    aiConversation: [],
+    lastAiResult: null
 };
 
 const API_BASE = window.location.protocol === 'file:'
     ? 'http://127.0.0.1:8000/api'
     : '/api';
 
+const measurementForm = document.getElementById('measurementForm');
 const categorySelect = document.getElementById('category');
 const subCategorySelect = document.getElementById('sub_category');
 const equipmentNameSelect = document.getElementById('equipment_name');
@@ -23,6 +28,7 @@ const manufacturerSelect = document.getElementById('manufacturer');
 const measurementRequirementInput = document.getElementById('measurement_requirement');
 const keywordInput = document.getElementById('keyword');
 const messageBar = document.getElementById('messageBar');
+const metadataBoard = document.getElementById('metadataBoard');
 const syncDataBtn = document.getElementById('syncDataBtn');
 const openHistoryBtn = document.getElementById('openHistoryBtn');
 const openHistoryBtnResult = document.getElementById('openHistoryBtnResult');
@@ -30,8 +36,13 @@ const closeHistoryBtn = document.getElementById('closeHistoryBtn');
 const historyBackdrop = document.getElementById('historyBackdrop');
 const historyModal = document.getElementById('historyModal');
 const historyList = document.getElementById('historyList');
+const aiSummaryCards = document.getElementById('aiSummaryCards');
+const aiConversation = document.getElementById('aiConversation');
+const aiPromptInput = document.getElementById('aiPromptInput');
+const aiExtractBtn = document.getElementById('aiExtractBtn');
+const aiSearchBtn = document.getElementById('aiSearchBtn');
 
-document.getElementById('measurementForm').addEventListener('submit', handleSubmit);
+measurementForm.addEventListener('submit', handleSubmit);
 categorySelect.addEventListener('change', handleCategoryChange);
 subCategorySelect.addEventListener('change', handleSubCategoryChange);
 equipmentNameSelect.addEventListener('change', handleEquipmentChange);
@@ -41,6 +52,8 @@ openHistoryBtn.addEventListener('click', openHistoryModal);
 openHistoryBtnResult.addEventListener('click', openHistoryModal);
 closeHistoryBtn.addEventListener('click', closeHistoryModal);
 historyBackdrop.addEventListener('click', closeHistoryModal);
+aiExtractBtn.addEventListener('click', () => handleAiAssist(false));
+aiSearchBtn.addEventListener('click', () => handleAiAssist(true));
 
 window.addEventListener('DOMContentLoaded', initializePage);
 
@@ -71,8 +84,8 @@ async function initializePage() {
 }
 
 async function loadPageData() {
-    const [optionsResult, recordsResult, logsResult] = await Promise.all([
-            fetchJson(buildApiUrl('/options')),
+    const [metadataResult, recordsResult, logsResult] = await Promise.all([
+            fetchJson(buildApiUrl('/query-metadata')),
             fetchJson(buildApiUrl('/search'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -88,10 +101,15 @@ async function loadPageData() {
             fetchJson(buildApiUrl('/search-logs?limit=12'))
         ]);
 
-    state.options = optionsResult.data;
+    state.queryMetadata = metadataResult.data;
+    state.fieldMetaByKey = buildFieldMetaMap(state.queryMetadata.fields || []);
+    state.options = buildOptionsFromMetadata(state.queryMetadata);
     state.allRecords = transformRecords(recordsResult.data.records);
     state.cascadeData = generateCascadeData(state.allRecords);
     state.searchLogs = logsResult.data.records || [];
+    renderMetadataBoard();
+    syncFormMetadata();
+    initializeAiWorkspace();
     renderHistoryList();
 
     populateSelect(categorySelect, state.options.categories, '请选择类别');
@@ -99,6 +117,280 @@ async function loadPageData() {
     resetSelect(equipmentNameSelect, '请先选择二级分类');
     resetSelect(modelSelect, '请先选择设备名称');
     resetSelect(manufacturerSelect, '请先选择型号');
+}
+
+function buildFieldMetaMap(fields) {
+    return (fields || []).reduce((result, field) => {
+        result[field.key] = field;
+        return result;
+    }, {});
+}
+
+function buildOptionsFromMetadata(metadata) {
+    const fields = metadata && Array.isArray(metadata.fields) ? metadata.fields : [];
+    const getOptions = key => {
+        const field = fields.find(item => item.key === key);
+        return field && Array.isArray(field.options) ? field.options : [];
+    };
+
+    return {
+        categories: getOptions('category'),
+        sub_categories: getOptions('sub_category'),
+        equipment_names: getOptions('equipment_name'),
+        models: getOptions('model'),
+        manufacturers: getOptions('manufacturer')
+    };
+}
+
+function getFieldMeta(key) {
+    return state.fieldMetaByKey[key] || null;
+}
+
+function renderMetadataBoard() {
+    const metadata = state.queryMetadata;
+    if (!metadataBoard || !metadata) {
+        return;
+    }
+
+    const groups = Array.isArray(metadata.groups) ? metadata.groups : [];
+    metadataBoard.innerHTML = groups.map(group => {
+        const fields = (group.fields || [])
+            .map(fieldKey => getFieldMeta(fieldKey))
+            .filter(Boolean)
+            .map(field => `<span class="metadata-field">${escapeHtml(field.label)}</span>`)
+            .join('');
+
+        return `
+            <article class="metadata-card">
+                <h3>${escapeHtml(group.label || '')}</h3>
+                <p>${escapeHtml(group.summary || '')}</p>
+                <div class="metadata-field-list">${fields}</div>
+            </article>
+        `;
+    }).join('');
+}
+
+function syncFormMetadata() {
+    if (!state.queryMetadata) {
+        return;
+    }
+
+    document.querySelectorAll('[data-field-label]').forEach(element => {
+        const meta = getFieldMeta(element.dataset.fieldLabel);
+        if (meta && meta.label) {
+            element.textContent = meta.label;
+        }
+    });
+
+    document.querySelectorAll('[data-field-hint]').forEach(element => {
+        const meta = getFieldMeta(element.dataset.fieldHint);
+        element.textContent = meta && meta.description ? meta.description : '';
+    });
+
+    [measurementRequirementInput, keywordInput].forEach(input => {
+        const meta = getFieldMeta(input.name);
+        if (meta && meta.placeholder) {
+            input.placeholder = meta.placeholder;
+        }
+    });
+}
+
+function initializeAiWorkspace() {
+    if (state.aiConversation.length === 0) {
+        state.aiConversation.push({
+            role: 'assistant',
+            content: '可以直接描述器具类别、设备名称、测量范围、型号或厂家。我会抽取结构化条件并回填到左侧表单。',
+            notes: ['支持“抽取并回填”后人工修正，也支持“抽取并搜索”直接进入结果页。'],
+            followUpQuestions: [],
+            filledFields: [],
+            confidence: 'medium'
+        });
+    }
+
+    renderAiSummaryCards();
+    renderAiConversation();
+}
+
+function renderAiSummaryCards() {
+    if (!aiSummaryCards) {
+        return;
+    }
+
+    const metadataFieldCount = state.queryMetadata && Array.isArray(state.queryMetadata.fields)
+        ? state.queryMetadata.fields.length
+        : 0;
+
+    if (!state.lastAiResult) {
+        aiSummaryCards.innerHTML = `
+            <div class="summary-card">
+                <strong>抽取范围</strong>
+                <p>当前 AI 会围绕 ${metadataFieldCount} 个查询字段抽取结构化参数，并与左侧表单保持同一套业务定义。</p>
+            </div>
+            <div class="summary-card">
+                <strong>工作方式</strong>
+                <p>先提取类别、设备、型号、厂家，再把无法稳定结构化的描述回退到关键字。</p>
+            </div>
+            <div class="summary-card">
+                <strong>技术规则</strong>
+                <p>一旦识别出测量对象要求范围，左侧搜索仍会沿用既有量程覆盖和 MPE 判定逻辑。</p>
+            </div>
+        `;
+        return;
+    }
+
+    const filledChips = (state.lastAiResult.filled_fields || [])
+        .map(field => `<span class="summary-chip">${escapeHtml(field.label)}: ${escapeHtml(field.value)}</span>`)
+        .join('');
+    const followUp = (state.lastAiResult.follow_up_questions || []).slice(0, 2).join('；') || '当前参数已可直接用于搜索。';
+
+    aiSummaryCards.innerHTML = `
+        <div class="summary-card">
+            <strong>最近一次抽取</strong>
+            <p>${escapeHtml(state.lastAiResult.assistant_reply || '')}</p>
+        </div>
+        <div class="summary-card">
+            <strong>已回填字段</strong>
+            <div class="summary-chip-list">${filledChips || '<span class="summary-chip">暂无</span>'}</div>
+        </div>
+        <div class="summary-card">
+            <strong>下一步建议</strong>
+            <p>${escapeHtml(followUp)}</p>
+        </div>
+    `;
+}
+
+function renderAiConversation() {
+    if (!aiConversation) {
+        return;
+    }
+
+    aiConversation.innerHTML = state.aiConversation.map(entry => {
+        if (entry.role === 'user') {
+            return `
+                <div class="ai-message user">
+                    <div class="ai-message-title">工作人员</div>
+                    <div>${escapeHtml(entry.content)}</div>
+                </div>
+            `;
+        }
+
+        const filledFields = (entry.filledFields || []).map(field => `${field.label}: ${field.value}`);
+        const notes = (entry.notes || []).map(item => `<div>${escapeHtml(item)}</div>`).join('');
+        const followUps = (entry.followUpQuestions || []).map(item => `<div>${escapeHtml(item)}</div>`).join('');
+
+        return `
+            <div class="ai-message assistant">
+                <div class="ai-message-title">AI 助手${entry.confidence ? ` · ${escapeHtml(formatConfidence(entry.confidence))}` : ''}</div>
+                <div>${escapeHtml(entry.content || '')}</div>
+                ${filledFields.length > 0 ? `
+                    <div class="assistant-section">
+                        <strong>本次抽取</strong>
+                        <div class="summary-chip-list">${filledFields.map(item => `<span class="summary-chip">${escapeHtml(item)}</span>`).join('')}</div>
+                    </div>
+                ` : ''}
+                ${notes ? `
+                    <div class="assistant-section">
+                        <strong>说明</strong>
+                        <div class="assistant-list">${notes}</div>
+                    </div>
+                ` : ''}
+                ${followUps ? `
+                    <div class="assistant-section">
+                        <strong>建议补充</strong>
+                        <div class="assistant-list">${followUps}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    aiConversation.scrollTop = aiConversation.scrollHeight;
+}
+
+function formatConfidence(confidence) {
+    if (confidence === 'high') {
+        return '高置信';
+    }
+    if (confidence === 'low') {
+        return '低置信';
+    }
+    return '中置信';
+}
+
+async function handleAiAssist(searchAfterExtract) {
+    const message = aiPromptInput.value.trim();
+    if (!message) {
+        setMessage('请先在右侧输入自然语言选型需求。', 'error');
+        aiPromptInput.focus();
+        return;
+    }
+
+    state.aiConversation.push({ role: 'user', content: message });
+    renderAiConversation();
+    setAiBusy(true, searchAfterExtract ? '正在抽取并准备搜索...' : '正在抽取参数...');
+
+    try {
+        const response = await fetchJson(buildApiUrl('/ai/extract'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message,
+                current_query: getCurrentQueryPayload()
+            })
+        });
+
+        state.lastAiResult = response.data;
+        populateFormFromQuery(response.data.query || {});
+        state.aiConversation.push({
+            role: 'assistant',
+            content: response.data.assistant_reply || '已完成参数抽取并回填。',
+            filledFields: response.data.filled_fields || [],
+            notes: response.data.notes || [],
+            followUpQuestions: response.data.follow_up_questions || [],
+            confidence: response.data.confidence || 'medium'
+        });
+        aiPromptInput.value = '';
+        renderAiSummaryCards();
+        renderAiConversation();
+        setMessage(searchAfterExtract ? 'AI 已完成参数抽取，正在执行搜索。' : 'AI 已完成参数抽取并回填到左侧表单。', 'success');
+
+        if (searchAfterExtract) {
+            measurementForm.requestSubmit();
+        }
+    } catch (error) {
+        state.aiConversation.push({
+            role: 'assistant',
+            content: error.message || 'AI 参数抽取失败。',
+            notes: ['左侧传统搜索仍然可用。若要启用 AI，请确认后端已配置 Qwen 接口。'],
+            followUpQuestions: [],
+            filledFields: [],
+            confidence: 'low'
+        });
+        renderAiConversation();
+        setMessage(error.message || 'AI 参数抽取失败。', 'error');
+    } finally {
+        setAiBusy(false);
+    }
+}
+
+function setAiBusy(isBusy, busyMessage = '') {
+    aiExtractBtn.disabled = isBusy;
+    aiSearchBtn.disabled = isBusy;
+    if (isBusy) {
+        setMessage(busyMessage, 'info');
+    }
+}
+
+function getCurrentQueryPayload() {
+    return {
+        category: categorySelect.value,
+        sub_category: subCategorySelect.value,
+        equipment_name: equipmentNameSelect.value,
+        model: modelSelect.value,
+        manufacturer: manufacturerSelect.value,
+        keyword: keywordInput.value.trim(),
+        measurement_requirement: measurementRequirementInput.value.trim()
+    };
 }
 
 async function handleSyncData() {
@@ -252,7 +544,7 @@ async function handleSubmit(event) {
     const requirementText = measurementRequirementInput.value.trim();
     const measurementRequirement = requirementText ? parseMeasurementRequirement(requirementText) : null;
     if (requirementText && !measurementRequirement) {
-        setMessage('测量对象要求范围格式无效，请输入类似 (5.4-5.7)mm 或 （10~12）mm 的区间。', 'error');
+        setMessage('测量对象要求范围格式无效，请输入类似 (5.4-5.7)mm、（10~12）mm 或 10±1mm 的格式。', 'error');
         measurementRequirementInput.focus();
         return;
     }
@@ -683,8 +975,9 @@ const UNIT_MAP = {
 /**
  * 解析用户输入的测量对象要求范围。
  *
- * 输入示例：(5.4-5.7)mm、（10~12）mm。
- * 解析后会得到原始区间、标准化单位、基准单位数值以及后续 MPE 判定所需的上限值。
+ * 输入示例：(5.4-5.7)mm、（10~12）mm、10±1mm。
+ * 无论用户输入区间还是“中心值±偏差”，最终都会转换成同一套区间结构，
+ * 供后续量程覆盖和 MPE 判定逻辑复用。
  */
 function parseMeasurementRequirement(input) {
     if (!input) {
@@ -700,41 +993,72 @@ function parseMeasurementRequirement(input) {
         .replace(/\s+/g, '')
         .toLowerCase();
 
-    const match = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*[-~]\s*(-?\d+(?:\.\d+)?)\)?([a-z%μμ\u4e00-\u9fa5]*)?/i);
-    if (!match) {
+    const intervalMatch = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*[-~]\s*(-?\d+(?:\.\d+)?)\)?([a-z%μμΩ℃°\u4e00-\u9fa5]*)?/i);
+    if (intervalMatch) {
+        const firstValue = Number(intervalMatch[1]);
+        const secondValue = Number(intervalMatch[2]);
+        if (!Number.isFinite(firstValue) || !Number.isFinite(secondValue) || secondValue <= firstValue) {
+            return null;
+        }
+
+        return buildMeasurementRequirement({
+            min: firstValue,
+            max: secondValue,
+            rawUnit: (intervalMatch[3] || '').trim(),
+            originalInput: input,
+            format: 'interval'
+        });
+    }
+
+    const plusMinusMatch = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*±\s*(\d+(?:\.\d+)?)\)?([a-z%μμΩ℃°\u4e00-\u9fa5]*)?/i);
+    if (!plusMinusMatch) {
         return null;
     }
 
-    const firstValue = Number(match[1]);
-    const secondValue = Number(match[2]);
-    if (!Number.isFinite(firstValue) || !Number.isFinite(secondValue) || secondValue <= firstValue) {
+    const midpoint = Number(plusMinusMatch[1]);
+    const tolerance = Number(plusMinusMatch[2]);
+    if (!Number.isFinite(midpoint) || !Number.isFinite(tolerance) || tolerance <= 0) {
         return null;
     }
 
-    const rawUnit = (match[3] || '').trim();
-    const unit = normalizeDisplayUnit(rawUnit || inferUnitFromRange(input));
+    return buildMeasurementRequirement({
+        min: midpoint - tolerance,
+        max: midpoint + tolerance,
+        rawUnit: (plusMinusMatch[3] || '').trim(),
+        originalInput: input,
+        format: 'plus-minus',
+        midpoint,
+        tolerance
+    });
+}
+
+function buildMeasurementRequirement({ min, max, rawUnit, originalInput, format, midpoint = null, tolerance = null }) {
+    const unit = normalizeDisplayUnit(rawUnit || inferUnitFromRange(originalInput));
     const unitMeta = getUnitMeta(unit);
-    const intervalLength = secondValue - firstValue;
-    const midpoint = (firstValue + secondValue) / 2;
-    const minBase = toBaseUnit(firstValue, unit);
-    const maxBase = toBaseUnit(secondValue, unit);
+    const intervalLength = max - min;
+    const resolvedMidpoint = midpoint === null ? (min + max) / 2 : midpoint;
+    const minBase = toBaseUnit(min, unit);
+    const maxBase = toBaseUnit(max, unit);
     const intervalLengthBase = maxBase - minBase;
 
     return {
-        min: firstValue,
-        max: secondValue,
+        min,
+        max,
         unit,
         dimension: unitMeta.dimension,
         intervalLength,
-        midpoint,
-        absMidpoint: Math.abs(midpoint),
+        midpoint: resolvedMidpoint,
+        absMidpoint: Math.abs(resolvedMidpoint),
         minBase,
         maxBase,
-        midpointBase: toBaseUnit(midpoint, unit),
-        absMidpointBase: Math.abs(toBaseUnit(midpoint, unit)),
+        midpointBase: toBaseUnit(resolvedMidpoint, unit),
+        absMidpointBase: Math.abs(toBaseUnit(resolvedMidpoint, unit)),
         intervalLengthBase,
         mpeLimit: intervalLength / 6,
-        mpeLimitBase: intervalLengthBase / 6
+        mpeLimitBase: intervalLengthBase / 6,
+        inputFormat: format,
+        inputText: String(originalInput || '').trim(),
+        tolerance
     };
 }
 
@@ -959,8 +1283,8 @@ function buildCalculatedMpeResult(value, displayUnit, expression, requirement) {
     return {
         value,
         unit: resolvedUnit,
-        normalizedValue,
-        displayValue: `${formatNumber(value)}${resolvedUnit ? ' ' + resolvedUnit : ''}`,
+        normalizedValue,  // 用来比较的基准数值（0.03mm 会转换成 0.00003m）
+        displayValue: `${formatNumber(value)}${resolvedUnit ? ' ' + resolvedUnit : ''}`,  // 用来显示的字符串（保持原单位，格式化数值）
         expression
     };
 }
@@ -1186,6 +1510,68 @@ function calculateMechanicalScaleClass(formula, requirement) {
 }
 
 /**
+ * 解析长度类按测量点 L 分段给出 MPE 的规则。
+ *
+ * 例如：0＜L≤70时：±0.02；70＜L≤200时：±0.03。
+ * 这里的测量点取用户区间的中间值，并且按逐行规则匹配，避免把下一行开头数字拼到当前行。
+ */
+function calculateLengthSegmentedMpe(formula, requirement) {
+    if (!formula || !/[Ll]/.test(formula) || !/(?:≤|<=|＜|<)/.test(formula)) {
+        return null;
+    }
+
+    const displayUnit = requirement.unit || '';
+    const measurementPoint = fromBaseUnit(requirement.midpointBase, displayUnit);
+    if (!Number.isFinite(measurementPoint)) {
+        return null;
+    }
+
+    const normalizedLines = String(formula)
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/；/g, '\n')
+        .replace(/;/g, '\n')
+        .split(/\r?\n/)
+        .map(line => line
+            .replace(/（/g, '(')
+            .replace(/）/g, ')')
+            .replace(/＜/g, '<')
+            .replace(/≤/g, '<=')
+            .replace(/：/g, ':')
+            .trim())
+        .filter(Boolean);
+
+    const segmentPattern = /(?:当)?\s*(-?\d+(?:\.\d+)?)\s*<\s*[Ll]\s*<=\s*(-?\d+(?:\.\d+)?)\s*(?:时)?\s*(?::)?\s*(?:MPE=)?\s*(?:±)?\s*(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)?/i;
+
+    for (const line of normalizedLines) {
+        const match = line.match(segmentPattern);
+        if (!match) {
+            continue;
+        }
+
+        const lowerBound = Number(match[1]);
+        const upperBound = Number(match[2]);
+        const mpeValue = Math.abs(Number(match[3]));
+        const mpeUnit = normalizeDisplayUnit(match[4] || displayUnit);
+
+        if (!Number.isFinite(lowerBound) || !Number.isFinite(upperBound) || !Number.isFinite(mpeValue)) {
+            continue;
+        }
+
+        if (measurementPoint > lowerBound && measurementPoint <= upperBound) {
+            const renderedUnit = mpeUnit || displayUnit;
+            return buildCalculatedMpeResult(
+                mpeValue,
+                renderedUnit,
+                `按测量点 L 分段判定：L = ${formatNumber(measurementPoint)}${displayUnit ? ' ' + displayUnit : ''}，命中区间 (${formatNumber(lowerBound)}, ${formatNumber(upperBound)}]，MPE = ${formatNumber(mpeValue)}${renderedUnit ? ' ' + renderedUnit : ''} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, renderedUnit || displayUnit || ''))}`,
+                requirement
+            );
+        }
+    }
+
+    return null;
+}
+
+/**
  * 解析“百分比满量程”公式，例如 0.05%FS。
  */
 function calculateFullScalePercent(formula, requirement, deviceRange) {
@@ -1260,6 +1646,9 @@ function calculateDeviceMpe(record, requirement, deviceRange) {
         resolvers.push(() => calculateMechanicalScaleClass(formula, requirement));
         resolvers.push(() => calculateMechanicalClassMpe(formula, requirement, deviceRange));
     }
+    if (category === '长度类') {
+        resolvers.push(() => calculateLengthSegmentedMpe(rawFormula, requirement));
+    }
 
     resolvers.push(() => calculateByReadingPlusFullScalePercent(formula, requirement, deviceRange));
     resolvers.push(() => calculateByReadingPlusConstant(formula, requirement));
@@ -1301,6 +1690,10 @@ function formatRange(requirement) {
     }
 
     const unitSuffix = requirement.unit ? ` ${requirement.unit}` : '';
+    if (requirement.inputFormat === 'plus-minus') {
+        return `${formatNumber(requirement.midpoint)}±${formatNumber(requirement.tolerance)}${unitSuffix}`;
+    }
+
     return `(${formatNumber(requirement.min)}-${formatNumber(requirement.max)})${unitSuffix}`;
 }
 
@@ -1433,10 +1826,13 @@ function createResultCard(formData, record, index) {
     }
 
     const requirement = formData.measurement_requirement_parsed;
+    const rawFields = record && record.fields ? (record.fields.原始字段 || {}) : {};
     const unitSuffix = requirement && requirement.unit ? ` ${requirement.unit}` : '';
     const browseMode = !requirement;
     const mpeText = record && record.computedMpe ? record.computedMpe.displayValue : (record.fields.MPE || '无');
-    const mpeFormulaText = record && record.fields.MPE ? String(record.fields.MPE) : '无';
+    const rawMpevText = rawFields.MPEV
+        ? String(rawFields.MPEV).replace(/\r?\n/g, '<br>')
+        : '无';
     const mpeExpression = record && record.computedMpe ? record.computedMpe.expression : '未输入测量对象要求范围，未执行 MPE 适配计算';
     const measurementRequirementText = requirement ? formatRange(requirement) : '未填写';
     const measurementLimitText = requirement ? `${formatNumber(requirement.mpeLimit)}${unitSuffix}` : '未计算';
@@ -1466,8 +1862,8 @@ function createResultCard(formData, record, index) {
                 <td>${mpeText}</td>
             </tr>
             <tr>
-                <td>MPE 原始规则</td>
-                <td>${mpeFormulaText}</td>
+                <td>MPE计算举例</td>
+                <td>${rawMpevText}</td>
             </tr>
             <tr>
                 <td>${browseMode ? '说明' : 'MPEV 计算过程'}</td>

@@ -17,8 +17,10 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.routers.ai import router as ai_router
 from app.routers.health import router as health_router
 from app.routers.options import router as options_router
+from app.routers.query_metadata import router as query_metadata_router
 from app.routers.search import router as search_router
 from app.routers.sync import router as sync_router
 from app.services.data_loader import DataLoadError
@@ -58,7 +60,9 @@ async def handle_validation_error(_: Request, exc: RequestValidationError) -> JS
 
 
 app.include_router(health_router)
+app.include_router(ai_router)
 app.include_router(options_router)
+app.include_router(query_metadata_router)
 app.include_router(search_router)
 app.include_router(sync_router)
 

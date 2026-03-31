@@ -70,6 +70,7 @@ class OptionsData(BaseModel):
     categories: list[str]
     sub_categories: list[str]
     equipment_names: list[str]
+    models: list[str]
     manufacturers: list[str]
 
 
@@ -78,3 +79,15 @@ class SearchData(BaseModel):
 
     total: int
     records: list[dict[str, Any]]
+
+
+class AIExtractRequest(BaseModel):
+    """AI 参数抽取请求模型。
+
+    前端会把右侧对话区中的自然语言描述发送到后端，同时附带当前左侧
+    表单状态，便于模型在“补充已有条件”和“明确清空旧条件”之间做出
+    更合理的判断。
+    """
+
+    message: str = ""
+    current_query: SearchRequest = Field(default_factory=SearchRequest)

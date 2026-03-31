@@ -33,10 +33,25 @@ python scripts/sync_dingtalk_tools.py
 
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
+如需启用右侧 AI 对话抽取，请额外配置 Qwen 兼容接口：
+
+Windows PowerShell:
+
+$env:QWEN_API_KEY="your_qwen_api_key"
+$env:QWEN_MODEL="qwen-plus"
+$env:QWEN_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+默认协议使用 DashScope 的 OpenAI 兼容路径 /chat/completions。
+
 启动后访问:
 
 - http://127.0.0.1:8000/
 - http://127.0.0.1:8000/api/health
+
+新增接口:
+
+- http://127.0.0.1:8000/api/query-metadata
+- http://127.0.0.1:8000/api/ai/extract
 
 ## 页面内手动更新数据
 

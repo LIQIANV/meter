@@ -1,10 +1,11 @@
 """项目配置集中定义。
 
 这个文件把后端会用到的重要路径与应用级配置统一收口，避免在各个
- 模块里重复拼接路径。当前项目没有引入复杂的环境配置体系，因此用
- 一个简单的 Settings 类承载静态配置即可。
+模块里重复拼接路径。当前项目没有引入复杂的环境配置体系，因此用
+一个简单的 Settings 类承载静态配置即可。
 """
 
+import os
 from pathlib import Path
 
 
@@ -31,6 +32,10 @@ class Settings:
     search_log_file = SEARCH_LOG_FILE
     frontend_dir = FRONTEND_DIR
     cors_origins = ["*"]
+    dify_base_url = os.getenv("DIFY_BASE_URL", "http://10.10.206.202/v1").rstrip("/")
+    dify_api_key = os.getenv("DIFY_API_KEY", "app-kjD3uSJKaM7edeMRcvtj7QdQ").strip()
+    dify_timeout = int(os.getenv("DIFY_TIMEOUT", "45"))
+    dify_user = os.getenv("DIFY_USER", "meter-selector-backend").strip()
 
 
 settings = Settings()

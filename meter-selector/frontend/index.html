@@ -3,80 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>计量选型表单</title>
+    <title>计量智能选型工作台</title>
     <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-    <div class="container" id="formContainer">
-        <div class="page-header">
+    <div class="workspace-shell" id="formContainer">
+        <div class="workspace-hero">
             <div>
-                <p class="eyebrow">Meter Selector</p>
-                <h1>计量选型表单</h1>
+                <p class="eyebrow">Meter Selector Workspace</p>
+                <h1>计量智能选型工作台</h1>
+                <p class="hero-description">左侧保留传统结构化选型，右侧通过 AI 对话抽取参数并回填表单，让工作人员可以在人工判断和智能检索之间自由切换。</p>
             </div>
             <div class="page-actions">
-                <button type="button" class="history-btn" id="syncDataBtn">更新数据</button>
-                <button type="button" class="history-btn" id="openHistoryBtn">查询历史</button>
+                <button type="button" class="ghost-btn" id="syncDataBtn">更新数据</button>
+                <button type="button" class="ghost-btn" id="openHistoryBtn">查询历史</button>
             </div>
         </div>
+
         <div id="messageBar" class="message-bar hidden"></div>
-        <form id="measurementForm">
-            <div class="form-group">
-                <label for="category">类别:</label>
-                <select name="category" id="category">
-                    <option value="">请选择类别</option>
-                </select>
-            </div>
 
-            <div class="form-group">
-                <label for="sub_category">二级分类:</label>
-                <select name="sub_category" id="sub_category">
-                    <option value="">请先选择类别</option>
-                </select>
-            </div>
+        <div class="workspace-grid">
+            <section class="panel traditional-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-eyebrow">Traditional Retrieval</p>
+                        <h2>传统查询选型</h2>
+                    </div>
+                    <span class="panel-badge">结构化条件</span>
+                </div>
 
-            <div class="form-group">
-                <label for="equipment_name">设备名称:</label>
-                <select name="equipment_name" id="equipment_name">
-                    <option value="">请先选择二级分类</option>
-                </select>
-            </div>
+                <div class="metadata-board" id="metadataBoard"></div>
 
-            <div class="form-group">
-                <label for="model">型号:</label>
-                <select name="model" id="model">
-                    <option value="">请先选择设备名称</option>
-                </select>
-            </div>
+                <form id="measurementForm" class="measurement-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="category"><span data-field-label="category">类别</span></label>
+                            <select name="category" id="category">
+                                <option value="">请选择类别</option>
+                            </select>
+                            <div class="form-hint" data-field-hint="category"></div>
+                        </div>
 
-            <div class="form-group">
-                <label for="measurement_requirement">测量对象要求范围:</label>
-                <input type="text" name="measurement_requirement" id="measurement_requirement" placeholder="例如：(5.4-5.7)mm，可留空做条件查询">
-                <div class="form-hint">可选填。填写后会执行量程覆盖和 MPE 计算；留空时仅按类别、名称、型号、厂家、关键字等条件查询。</div>
-            </div>
+                        <div class="form-group">
+                            <label for="sub_category"><span data-field-label="sub_category">二级分类</span></label>
+                            <select name="sub_category" id="sub_category">
+                                <option value="">请先选择类别</option>
+                            </select>
+                            <div class="form-hint" data-field-hint="sub_category"></div>
+                        </div>
 
-            <div class="form-group">
-                <label for="manufacturer">厂家:</label>
-                <select name="manufacturer" id="manufacturer">
-                    <option value="">请先选择型号</option>
-                </select>
-            </div>
+                        <div class="form-group">
+                            <label for="equipment_name"><span data-field-label="equipment_name">设备名称</span></label>
+                            <select name="equipment_name" id="equipment_name">
+                                <option value="">请先选择二级分类</option>
+                            </select>
+                            <div class="form-hint" data-field-hint="equipment_name"></div>
+                        </div>
 
-            <div class="form-group">
-                <label for="keyword">关键字:</label>
-                <input type="text" name="keyword" id="keyword" placeholder="选填，可搜索应用场景、型号、厂家等">
-            </div>
+                        <div class="form-group">
+                            <label for="model"><span data-field-label="model">型号</span></label>
+                            <select name="model" id="model">
+                                <option value="">请先选择设备名称</option>
+                            </select>
+                            <div class="form-hint" data-field-hint="model"></div>
+                        </div>
 
-            <button type="submit" class="submit-btn">提交</button>
-        </form>
+                        <div class="form-group span-2">
+                            <label for="measurement_requirement"><span data-field-label="measurement_requirement">测量对象要求范围</span></label>
+                            <input type="text" name="measurement_requirement" id="measurement_requirement" placeholder="例如：(5.4-5.7)mm 或 10±1mm，可留空做条件查询">
+                            <div class="form-hint" data-field-hint="measurement_requirement">可选填。支持区间或中心值±偏差两种写法；填写后会执行量程覆盖和 MPE 计算，留空时仅按条件查询。</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="manufacturer"><span data-field-label="manufacturer">厂家</span></label>
+                            <select name="manufacturer" id="manufacturer">
+                                <option value="">请先选择型号</option>
+                            </select>
+                            <div class="form-hint" data-field-hint="manufacturer"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="keyword"><span data-field-label="keyword">关键字</span></label>
+                            <input type="text" name="keyword" id="keyword" placeholder="选填，可搜索应用场景、型号、厂家等">
+                            <div class="form-hint" data-field-hint="keyword"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn">执行传统搜索</button>
+                    </div>
+                </form>
+            </section>
+
+            <aside class="panel ai-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-eyebrow">AI Extraction</p>
+                        <h2>AI 对话抽取参数</h2>
+                    </div>
+                    <span class="panel-badge">Qwen 协议</span>
+                </div>
+
+                <div class="ai-summary" id="aiSummaryCards"></div>
+
+                <div class="ai-conversation" id="aiConversation"></div>
+
+                <div class="ai-composer">
+                    <label class="composer-label" for="aiPromptInput">描述你的选型需求</label>
+                    <textarea id="aiPromptInput" placeholder="例如：我需要找长度类的游标卡尺，用于 5.4 到 5.7mm 的尺寸检测，先不要限制厂家。"></textarea>
+                    <div class="ai-actions">
+                        <button type="button" class="ghost-btn" id="aiExtractBtn">抽取并回填</button>
+                        <button type="button" class="primary-btn" id="aiSearchBtn">抽取并搜索</button>
+                    </div>
+                </div>
+            </aside>
+        </div>
     </div>
 
-    <div class="container result-container" id="resultContainer">
-        <h1>选型结果</h1>
-        <div id="resultsList"></div>
-        <div class="action-buttons">
-            <button type="button" class="history-btn secondary" id="openHistoryBtnResult">查询历史</button>
-            <button class="back-btn" onclick="backToForm()">重新选择</button>
+    <div class="result-container" id="resultContainer">
+        <div class="result-page-header">
+            <div>
+                <p class="eyebrow">Selection Result</p>
+                <h1>选型结果</h1>
+            </div>
+            <div class="action-buttons">
+                <button type="button" class="ghost-btn" id="openHistoryBtnResult">查询历史</button>
+                <button class="back-btn" onclick="backToForm()">重新选择</button>
+            </div>
         </div>
+        <div id="resultsList"></div>
     </div>
 
     <div class="history-modal hidden" id="historyModal">
