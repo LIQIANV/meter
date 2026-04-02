@@ -542,7 +542,11 @@ async function handleSubmit(event) {
     event.preventDefault();
 
     const requirementText = measurementRequirementInput.value.trim();
-    const measurementRequirement = requirementText ? parseMeasurementRequirement(requirementText) : null;
+    const measurementRequirement = requirementText ? parseMeasurementRequirement(requirementText, {
+        category: categorySelect.value,
+        subCategory: subCategorySelect.value,
+        equipmentName: equipmentNameSelect.value
+    }) : null;
     if (requirementText && !measurementRequirement) {
         setMessage('测量对象要求范围格式无效，请输入类似 (5.4-5.7)mm、（10~12）mm 或 10±1mm 的格式。', 'error');
         measurementRequirementInput.focus();
@@ -944,31 +948,105 @@ function toImageArray(imageValue) {
     return [];
 }
 
+function normalizeMatchText(value) {
+    return String(value || '')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+}
+
+function contextHasKeyword(context, keywords) {
+    const values = [context.category, context.subCategory, context.equipmentName].map(normalizeMatchText);
+    return keywords.some(keyword => {
+        const normalizedKeyword = normalizeMatchText(keyword);
+        return values.some(value => value.includes(normalizedKeyword));
+    });
+}
+
+function resolveDefaultMeasurementUnit(context = {}) {
+    const normalizedContext = {
+        category: context.category || '',
+        subCategory: context.subCategory || '',
+        equipmentName: context.equipmentName || ''
+    };
+
+    if (contextHasKeyword(normalizedContext, ['长度类'])) {
+        return 'mm';
+    }
+
+    if (contextHasKeyword(normalizedContext, ['温度类'])) {
+        return '℃';
+    }
+
+    if (contextHasKeyword(normalizedContext, ['电学类', '电源', '电学仪表', '综合测试仪'])) {
+        if (contextHasKeyword(normalizedContext, ['数显电流表', '电流'])) {
+            return 'A';
+        }
+        if (contextHasKeyword(normalizedContext, ['万用表', '电阻', '欧姆'])) {
+            return 'Ω';
+        }
+        if (contextHasKeyword(normalizedContext, ['综合测试仪'])) {
+            return 'Ω';
+        }
+        return 'V';
+    }
+
+    if (contextHasKeyword(normalizedContext, ['扭力螺丝刀'])) {
+        return 'cNm';
+    }
+    if (contextHasKeyword(normalizedContext, ['扭矩扳手', '扭矩'])) {
+        return 'Nm';
+    }
+    if (contextHasKeyword(normalizedContext, ['电子天平'])) {
+        return 'g';
+    }
+    if (contextHasKeyword(normalizedContext, ['电子台秤'])) {
+        return 'kg';
+    }
+    if (contextHasKeyword(normalizedContext, ['压力'])) {
+        return 'MPa';
+    }
+    if (contextHasKeyword(normalizedContext, ['流量'])) {
+        return 'mL/min';
+    }
+
+    return '';
+}
+
 const UNIT_MAP = {
     '': { factor: 1, dimension: 'generic', display: '' },
-    'mm': { factor: 1e-3, dimension: 'length', display: 'mm' },
-    'cm': { factor: 1e-2, dimension: 'length', display: 'cm' },
     'm': { factor: 1, dimension: 'length', display: 'm' },
-    'um': { factor: 1e-6, dimension: 'length', display: 'um' },
+    'dm': { factor: 1e-1, dimension: 'length', display: 'dm' },
+    'cm': { factor: 1e-2, dimension: 'length', display: 'cm' },
+    'mm': { factor: 1e-3, dimension: 'length', display: 'mm' },
     'μm': { factor: 1e-6, dimension: 'length', display: 'μm' },
     'mg': { factor: 1e-6, dimension: 'mass', display: 'mg' },
     'g': { factor: 1e-3, dimension: 'mass', display: 'g' },
     'kg': { factor: 1, dimension: 'mass', display: 'kg' },
-    'ml': { factor: 1e-3, dimension: 'volume', display: 'mL' },
-    'l': { factor: 1, dimension: 'volume', display: 'L' },
+    'mL': { factor: 1e-3, dimension: 'volume', display: 'mL' },
+    'L': { factor: 1, dimension: 'volume', display: 'L' },
     '℃': { factor: 1, dimension: 'temperature', display: '℃' },
-    '°c': { factor: 1, dimension: 'temperature', display: '℃' },
-    'c': { factor: 1, dimension: 'temperature', display: '℃' },
-    'v': { factor: 1, dimension: 'voltage', display: 'V' },
-    'mv': { factor: 1e-3, dimension: 'voltage', display: 'mV' },
-    'kv': { factor: 1e3, dimension: 'voltage', display: 'kV' },
-    'a': { factor: 1, dimension: 'current', display: 'A' },
-    'ma': { factor: 1e-3, dimension: 'current', display: 'mA' },
-    'ua': { factor: 1e-6, dimension: 'current', display: 'uA' },
-    'μa': { factor: 1e-6, dimension: 'current', display: 'μA' },
-    'ω': { factor: 1, dimension: 'resistance', display: 'Ω' },
-    'kω': { factor: 1e3, dimension: 'resistance', display: 'kΩ' },
-    'mω': { factor: 1e6, dimension: 'resistance', display: 'MΩ' },
+    'K': { factor: 1, dimension: 'temperature', display: 'K' },
+    'V': { factor: 1, dimension: 'voltage', display: 'V' },
+    'mV': { factor: 1e-3, dimension: 'voltage', display: 'mV' },
+    'kV': { factor: 1e3, dimension: 'voltage', display: 'kV' },
+    'μV': { factor: 1e-6, dimension: 'voltage', display: 'μV' },
+    'A': { factor: 1, dimension: 'current', display: 'A' },
+    'mA': { factor: 1e-3, dimension: 'current', display: 'mA' },
+    'μA': { factor: 1e-6, dimension: 'current', display: 'μA' },
+    'MΩ': { factor: 1e6, dimension: 'resistance', display: 'MΩ' },
+    'kΩ': { factor: 1e3, dimension: 'resistance', display: 'kΩ' },
+    'Ω': { factor: 1, dimension: 'resistance', display: 'Ω' },
+    'mΩ': { factor: 1e-3, dimension: 'resistance', display: 'mΩ' },
+    'Nm': { factor: 1, dimension: 'torque', display: 'Nm' },
+    'cNm': { factor: 1e-2, dimension: 'torque', display: 'cNm' },
+    'MPa': { factor: 1, dimension: 'pressure', display: 'MPa' },
+    'bar': { factor: 1e-1, dimension: 'pressure', display: 'bar' },
+    'kPa': { factor: 1e-3, dimension: 'pressure', display: 'kPa' },
+    'Pa': { factor: 1e-6, dimension: 'pressure', display: 'Pa' },
+    'mL/min': { factor: 1, dimension: 'flow', display: 'mL/min' },
+    'L/min': { factor: 1e3, dimension: 'flow', display: 'L/min' },
+    'm3/h': { factor: 1000000 / 60, dimension: 'flow', display: 'm3/h' },
+    'L/h': { factor: 1000 / 60, dimension: 'flow', display: 'L/h' },
     '%': { factor: 1, dimension: 'generic', display: '%' }
 };
 
@@ -979,7 +1057,7 @@ const UNIT_MAP = {
  * 无论用户输入区间还是“中心值±偏差”，最终都会转换成同一套区间结构，
  * 供后续量程覆盖和 MPE 判定逻辑复用。
  */
-function parseMeasurementRequirement(input) {
+function parseMeasurementRequirement(input, context = {}) {
     if (!input) {
         return null;
     }
@@ -990,10 +1068,9 @@ function parseMeasurementRequirement(input) {
         .replace(/～/g, '~')
         .replace(/—/g, '-')
         .replace(/–/g, '-')
-        .replace(/\s+/g, '')
-        .toLowerCase();
+        .replace(/\s+/g, '');
 
-    const intervalMatch = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*[-~]\s*(-?\d+(?:\.\d+)?)\)?([a-z%μμΩ℃°\u4e00-\u9fa5]*)?/i);
+    const intervalMatch = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*[-~]\s*(-?\d+(?:\.\d+)?)\)?((?:[a-zA-Z%μμΩ℃°/\u4e00-\u9fa5][a-zA-Z0-9%μμΩ℃°/·³\u4e00-\u9fa5]*)?)?$/i);
     if (intervalMatch) {
         const firstValue = Number(intervalMatch[1]);
         const secondValue = Number(intervalMatch[2]);
@@ -1006,11 +1083,12 @@ function parseMeasurementRequirement(input) {
             max: secondValue,
             rawUnit: (intervalMatch[3] || '').trim(),
             originalInput: input,
-            format: 'interval'
+            format: 'interval',
+            context
         });
     }
 
-    const plusMinusMatch = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*±\s*(\d+(?:\.\d+)?)\)?([a-z%μμΩ℃°\u4e00-\u9fa5]*)?/i);
+    const plusMinusMatch = normalized.match(/\(?(-?\d+(?:\.\d+)?)\s*±\s*(\d+(?:\.\d+)?)\)?((?:[a-zA-Z%μμΩ℃°/\u4e00-\u9fa5][a-zA-Z0-9%μμΩ℃°/·³\u4e00-\u9fa5]*)?)?$/i);
     if (!plusMinusMatch) {
         return null;
     }
@@ -1028,18 +1106,23 @@ function parseMeasurementRequirement(input) {
         originalInput: input,
         format: 'plus-minus',
         midpoint,
-        tolerance
+        tolerance,
+        context
     });
 }
 
-function buildMeasurementRequirement({ min, max, rawUnit, originalInput, format, midpoint = null, tolerance = null }) {
-    const unit = normalizeDisplayUnit(rawUnit || inferUnitFromRange(originalInput));
+function buildMeasurementRequirement({ min, max, rawUnit, originalInput, format, midpoint = null, tolerance = null, context = {} }) {
+    const unit = normalizeDisplayUnit(
+        sanitizeUnitCandidate(rawUnit)
+        || sanitizeUnitCandidate(inferUnitFromRange(originalInput))
+        || resolveDefaultMeasurementUnit(context)
+    );
     const unitMeta = getUnitMeta(unit);
     const intervalLength = max - min;
     const resolvedMidpoint = midpoint === null ? (min + max) / 2 : midpoint;
-    const minBase = toBaseUnit(min, unit);
-    const maxBase = toBaseUnit(max, unit);
-    const intervalLengthBase = maxBase - minBase;
+    const minBase = toBaseUnit(min, unit, 'absolute');
+    const maxBase = toBaseUnit(max, unit, 'absolute');
+    const intervalLengthBase = toBaseUnit(intervalLength, unit, 'delta');
 
     return {
         min,
@@ -1051,11 +1134,11 @@ function buildMeasurementRequirement({ min, max, rawUnit, originalInput, format,
         absMidpoint: Math.abs(resolvedMidpoint),
         minBase,
         maxBase,
-        midpointBase: toBaseUnit(resolvedMidpoint, unit),
-        absMidpointBase: Math.abs(toBaseUnit(resolvedMidpoint, unit)),
+        midpointBase: toBaseUnit(resolvedMidpoint, unit, 'absolute'),
+        absMidpointBase: Math.abs(toBaseUnit(resolvedMidpoint, unit, 'absolute')),
         intervalLengthBase,
         mpeLimit: intervalLength / 6,
-        mpeLimitBase: intervalLengthBase / 6,
+        mpeLimitBase: toBaseUnit(intervalLength / 6, unit, 'delta'),
         inputFormat: format,
         inputText: String(originalInput || '').trim(),
         tolerance
@@ -1066,8 +1149,21 @@ function buildMeasurementRequirement({ min, max, rawUnit, originalInput, format,
  * 当正则没有稳定识别到区间后的单位时，尝试从原始输入尾部补推单位。
  */
 function inferUnitFromRange(input) {
-    const unitMatch = input.match(/[a-zA-Z%μμΩ℃°\u4e00-\u9fa5]+\s*$/);
+    const unitMatch = input.match(/(?:[a-zA-Z%μμΩ℃°/\u4e00-\u9fa5][a-zA-Z0-9%μμΩ℃°/·³\u4e00-\u9fa5]*)\s*$/);
     return unitMatch ? unitMatch[0].trim() : '';
+}
+
+function sanitizeUnitCandidate(unit) {
+    const normalized = String(unit || '').trim();
+    if (!normalized) {
+        return '';
+    }
+
+    if (!/[a-zA-ZμΩ℃°%\/\u4e00-\u9fa5]/.test(normalized)) {
+        return '';
+    }
+
+    return normalized;
 }
 
 /**
@@ -1084,52 +1180,66 @@ function normalizeDisplayUnit(unit) {
         .replace(/\s+/g, '')
         .replace(/µ/g, 'μ')
         .replace(/ohm/ig, 'Ω')
-        .replace(/ω/g, 'Ω');
+        .replace(/ω/g, 'Ω')
+        .replace(/立方米/g, 'm3')
+        .replace(/开尔文/g, 'K')
+        .replace(/摄氏度/g, '℃')
+        .replace(/摄氏/g, '℃')
+        .replace(/分米/g, 'dm')
+        .replace(/厘米/g, 'cm')
+        .replace(/毫米/g, 'mm')
+        .replace(/微米/g, 'μm')
+        .replace(/千克/g, 'kg')
+        .replace(/毫克/g, 'mg')
+        .replace(/克/g, 'g')
+        .replace(/兆帕/g, 'MPa')
+        .replace(/千帕/g, 'kPa')
+        .replace(/帕/g, 'Pa')
+        .replace(/巴/g, 'bar')
+        .replace(/千伏/g, 'kV')
+        .replace(/毫伏/g, 'mV')
+        .replace(/微伏/g, 'μV')
+        .replace(/伏特/g, 'V')
+        .replace(/伏/g, 'V')
+        .replace(/毫安/g, 'mA')
+        .replace(/微安/g, 'μA')
+        .replace(/安培/g, 'A')
+        .replace(/兆欧/g, 'MΩ')
+        .replace(/千欧/g, 'kΩ')
+        .replace(/毫欧/g, 'mΩ')
+        .replace(/欧/g, 'Ω')
+        .replace(/厘牛米/g, 'cNm')
+        .replace(/牛米/g, 'Nm')
+        .replace(/毫升\/分钟/g, 'mL/min')
+        .replace(/升\/分钟/g, 'L/min')
+        .replace(/升\/小时/g, 'L/h')
+        .replace(/m³/g, 'm3')
+        .replace(/N·m/g, 'Nm')
+        .replace(/N\.m/g, 'Nm')
+        .replace(/cN·m/g, 'cNm')
+        .replace(/cN\.m/g, 'cNm');
 
-    if (/^mv$/i.test(normalized)) {
-        return 'mV';
+    if (!/[a-zA-ZμΩ℃°%\/\u4e00-\u9fa5]/.test(normalized)) {
+        return '';
     }
-    if (/^kv$/i.test(normalized)) {
-        return 'kV';
-    }
-    if (/^v$/i.test(normalized)) {
-        return 'V';
-    }
-    if (/^ma$/i.test(normalized)) {
-        return 'mA';
-    }
-    if (/^ua$/i.test(normalized) || /^μa$/i.test(normalized)) {
-        return 'μA';
-    }
-    if (/^a$/i.test(normalized)) {
-        return 'A';
-    }
-    if (/^mω$/i.test(normalized) && normalized.includes('Ω')) {
-        return 'MΩ';
-    }
-    if (/^kω$/i.test(normalized)) {
-        return 'kΩ';
-    }
-    if (/^ω$/i.test(normalized)) {
-        return 'Ω';
-    }
-    if (/^ml$/i.test(normalized)) {
-        return 'mL';
-    }
-    if (/^l$/i.test(normalized)) {
-        return 'L';
-    }
-    if (/^(°c|℃|c)$/i.test(normalized)) {
+
+    if (/^(°C|°c|℃|C|c)$/i.test(normalized)) {
         return '℃';
     }
-    if (/^um$/i.test(normalized) || /^μm$/i.test(normalized)) {
-        return 'μm';
+    if (/^K$/i.test(normalized)) {
+        return 'K';
+    }
+    if (/^dm$/i.test(normalized)) {
+        return 'dm';
+    }
+    if (/^cm$/i.test(normalized)) {
+        return 'cm';
     }
     if (/^mm$/i.test(normalized)) {
         return 'mm';
     }
-    if (/^cm$/i.test(normalized)) {
-        return 'cm';
+    if (/^(um|μm)$/i.test(normalized)) {
+        return 'μm';
     }
     if (/^m$/i.test(normalized)) {
         return 'm';
@@ -1137,11 +1247,80 @@ function normalizeDisplayUnit(unit) {
     if (/^mg$/i.test(normalized)) {
         return 'mg';
     }
+    if (/^g$/i.test(normalized)) {
+        return 'g';
+    }
     if (/^kg$/i.test(normalized)) {
         return 'kg';
     }
-    if (/^g$/i.test(normalized)) {
-        return 'g';
+    if (/^ml$/i.test(normalized)) {
+        return 'mL';
+    }
+    if (/^l$/i.test(normalized)) {
+        return 'L';
+    }
+    if (/^mv$/i.test(normalized)) {
+        return 'mV';
+    }
+    if (/^kv$/i.test(normalized)) {
+        return 'kV';
+    }
+    if (/^(uv|μv)$/i.test(normalized)) {
+        return 'μV';
+    }
+    if (/^v$/i.test(normalized)) {
+        return 'V';
+    }
+    if (/^ma$/i.test(normalized)) {
+        return 'mA';
+    }
+    if (/^(ua|μa)$/i.test(normalized)) {
+        return 'μA';
+    }
+    if (/^a$/i.test(normalized)) {
+        return 'A';
+    }
+    if (normalized === 'MΩ') {
+        return 'MΩ';
+    }
+    if (/^kΩ$/i.test(normalized)) {
+        return 'kΩ';
+    }
+    if (/^mΩ$/i.test(normalized)) {
+        return 'mΩ';
+    }
+    if (/^Ω$/i.test(normalized)) {
+        return 'Ω';
+    }
+    if (/^cnm$/i.test(normalized)) {
+        return 'cNm';
+    }
+    if (/^nm$/i.test(normalized)) {
+        return 'Nm';
+    }
+    if (/^mpa$/i.test(normalized)) {
+        return 'MPa';
+    }
+    if (/^bar$/i.test(normalized)) {
+        return 'bar';
+    }
+    if (/^kpa$/i.test(normalized)) {
+        return 'kPa';
+    }
+    if (/^pa$/i.test(normalized)) {
+        return 'Pa';
+    }
+    if (/^ml\/min$/i.test(normalized)) {
+        return 'mL/min';
+    }
+    if (/^l\/min$/i.test(normalized)) {
+        return 'L/min';
+    }
+    if (/^l\/h$/i.test(normalized)) {
+        return 'L/h';
+    }
+    if (/^m3\/h$/i.test(normalized)) {
+        return 'm3/h';
     }
 
     return normalized;
@@ -1151,10 +1330,7 @@ function normalizeDisplayUnit(unit) {
  * 把显示单位转换为 UNIT_MAP 使用的查找键。
  */
 function getUnitKey(unit) {
-    if (!unit) {
-        return '';
-    }
-    return normalizeDisplayUnit(unit).toLowerCase();
+    return normalizeDisplayUnit(unit);
 }
 
 /**
@@ -1169,22 +1345,32 @@ function getUnitMeta(unit) {
  *
  * 例如 mm 会换算到 m，g 会换算到 kg。这样不同单位的值才能直接比较。
  */
-function toBaseUnit(value, unit) {
+function toBaseUnit(value, unit, mode = 'absolute') {
     if (!Number.isFinite(value)) {
         return null;
     }
-    const meta = getUnitMeta(unit);
+    const normalizedUnit = normalizeDisplayUnit(unit);
+    if (normalizedUnit === 'K') {
+        return mode === 'absolute' ? value - 273.15 : value;
+    }
+
+    const meta = getUnitMeta(normalizedUnit);
     return value * meta.factor;
 }
 
 /**
  * 把基准单位数值还原到指定显示单位。
  */
-function fromBaseUnit(value, unit) {
+function fromBaseUnit(value, unit, mode = 'absolute') {
     if (!Number.isFinite(value)) {
         return null;
     }
-    const meta = getUnitMeta(unit);
+    const normalizedUnit = normalizeDisplayUnit(unit);
+    if (normalizedUnit === 'K') {
+        return mode === 'absolute' ? value + 273.15 : value;
+    }
+
+    const meta = getUnitMeta(normalizedUnit);
     return meta.factor === 0 ? null : value / meta.factor;
 }
 
@@ -1204,13 +1390,13 @@ function parseValueWithUnit(value, fallbackUnit) {
         return {
             value,
             unit: resolvedUnit,
-            normalizedValue: toBaseUnit(value, resolvedUnit),
+            normalizedValue: toBaseUnit(value, resolvedUnit, 'absolute'),
             dimension: getUnitMeta(resolvedUnit).dimension
         };
     }
 
     const text = String(value).trim();
-    const match = text.match(/(-?\d+(?:\.\d+)?)(?:\s*)([a-zA-ZμμΩ℃°]+)?/);
+    const match = text.match(/(-?\d+(?:\.\d+)?)(?:\s*)([a-zA-Z0-9μμΩ℃°/%·³]+(?:\/[a-zA-Z0-9μμΩ℃°%·³]+)?)?/);
     if (!match) {
         const resolvedUnit = normalizeDisplayUnit(fallbackUnit || '');
         return { value: null, unit: resolvedUnit, normalizedValue: null, dimension: getUnitMeta(resolvedUnit).dimension };
@@ -1221,7 +1407,7 @@ function parseValueWithUnit(value, fallbackUnit) {
     return {
         value: Number.isFinite(parsedValue) ? parsedValue : null,
         unit: parsedUnit,
-        normalizedValue: Number.isFinite(parsedValue) ? toBaseUnit(parsedValue, parsedUnit) : null,
+        normalizedValue: Number.isFinite(parsedValue) ? toBaseUnit(parsedValue, parsedUnit, 'absolute') : null,
         dimension: getUnitMeta(parsedUnit).dimension
     };
 }
@@ -1279,7 +1465,7 @@ function buildCalculatedMpeResult(value, displayUnit, expression, requirement) {
     }
 
     const resolvedUnit = normalizeDisplayUnit(displayUnit || requirement.unit || '');
-    const normalizedValue = toBaseUnit(value, resolvedUnit);
+    const normalizedValue = toBaseUnit(value, resolvedUnit, 'delta');
     return {
         value,
         unit: resolvedUnit,
@@ -1295,7 +1481,7 @@ function buildCalculatedMpeResult(value, displayUnit, expression, requirement) {
  * 例如：0.05%示值+0.01mm。
  */
 function calculateByReadingPlusConstant(formula, requirement) {
-    const match = formula.match(/(-?\d+(?:\.\d+)?)%示值\+(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)/i);
+    const match = formula.match(/(-?\d+(?:\.\d+)?)%示值\+(-?\d+(?:\.\d+)?)([a-zA-Z0-9μμΩ℃°/%·³]+(?:\/[a-zA-Z0-9μμΩ℃°%·³]+)?)/i);
     if (!match) {
         return null;
     }
@@ -1304,8 +1490,8 @@ function calculateByReadingPlusConstant(formula, requirement) {
     const constantValue = Number(match[2]);
     const constantUnit = normalizeDisplayUnit(match[3]);
     const displayUnit = requirement.unit || constantUnit;
-    const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
-    const constantInDisplayUnit = fromBaseUnit(toBaseUnit(constantValue, constantUnit), displayUnit);
+    const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit, 'absolute');
+    const constantInDisplayUnit = fromBaseUnit(toBaseUnit(constantValue, constantUnit, 'delta'), displayUnit, 'delta');
     if (!Number.isFinite(readingInDisplayUnit) || !Number.isFinite(constantInDisplayUnit)) {
         return null;
     }
@@ -1314,7 +1500,7 @@ function calculateByReadingPlusConstant(formula, requirement) {
     return buildCalculatedMpeResult(
         result,
         displayUnit,
-        `±(${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(readingPercent)}% + ${formatNumber(Math.abs(constantInDisplayUnit))}) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+        `±(${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(readingPercent)}% + ${formatNumber(Math.abs(constantInDisplayUnit))}) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
         requirement
     );
 }
@@ -1333,8 +1519,8 @@ function calculateByReadingPlusFullScalePercent(formula, requirement, deviceRang
     const readingPercent = Number(match[1]);
     const fullScalePercent = Number(match[2]);
     const displayUnit = requirement.unit || deviceRange.unit;
-    const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
-    const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit);
+    const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit, 'absolute');
+    const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit, 'absolute');
     if (!Number.isFinite(readingInDisplayUnit) || !Number.isFinite(fullScaleInDisplayUnit)) {
         return null;
     }
@@ -1343,7 +1529,7 @@ function calculateByReadingPlusFullScalePercent(formula, requirement, deviceRang
     return buildCalculatedMpeResult(
         result,
         displayUnit,
-        `±(${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(readingPercent)}% + ${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(fullScalePercent)}%) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+        `±(${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(readingPercent)}% + ${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(fullScalePercent)}%) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
         requirement
     );
 }
@@ -1362,7 +1548,7 @@ function calculateByPercentOfReading(formula, requirement) {
 
         const percent = Number(match[1]);
         const displayUnit = requirement.unit;
-        const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
+        const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit, 'absolute');
         if (!Number.isFinite(readingInDisplayUnit)) {
             return null;
         }
@@ -1371,7 +1557,7 @@ function calculateByPercentOfReading(formula, requirement) {
         return buildCalculatedMpeResult(
             result,
             displayUnit,
-            `±${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+            `±${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
             requirement
         );
     }
@@ -1379,7 +1565,7 @@ function calculateByPercentOfReading(formula, requirement) {
     if (/^±?-?\d+(?:\.\d+)?%$/i.test(formula)) {
         const percent = extractPercent(formula);
         const displayUnit = requirement.unit;
-        const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit);
+        const readingInDisplayUnit = fromBaseUnit(requirement.midpointBase, displayUnit, 'absolute');
         if (!Number.isFinite(percent) || !Number.isFinite(readingInDisplayUnit)) {
             return null;
         }
@@ -1388,7 +1574,7 @@ function calculateByPercentOfReading(formula, requirement) {
         return buildCalculatedMpeResult(
             result,
             displayUnit,
-            `±${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+            `±${formatNumber(Math.abs(readingInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
             requirement
         );
     }
@@ -1406,12 +1592,12 @@ function calculateTemperatureMpe(formula, requirement) {
     if (absTFormula) {
         const constant = Number(absTFormula[1]);
         const coefficient = Number(absTFormula[2]);
-        const tValue = Math.abs(requirement.midpoint);
+        const tValue = Math.abs(fromBaseUnit(requirement.midpointBase, '℃', 'absolute'));
         const result = constant + coefficient * tValue;
         return buildCalculatedMpeResult(
             result,
             requirement.unit || '℃',
-            `±(${formatNumber(constant)} + ${formatNumber(coefficient)} × ${formatNumber(tValue)}) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, requirement.unit || '℃'))}`,
+            `±(${formatNumber(constant)} + ${formatNumber(coefficient)} × ${formatNumber(tValue)}) = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, requirement.unit || '℃', 'delta'))}`,
             requirement
         );
     }
@@ -1419,12 +1605,12 @@ function calculateTemperatureMpe(formula, requirement) {
     const tFormula = formula.match(/(-?\d+(?:\.\d+)?)\*t/i);
     if (tFormula) {
         const coefficient = Number(tFormula[1]);
-        const tValue = requirement.midpoint;
+        const tValue = fromBaseUnit(requirement.midpointBase, '℃', 'absolute');
         const result = Math.abs(coefficient * tValue);
         return buildCalculatedMpeResult(
             result,
             requirement.unit || '℃',
-            `±${formatNumber(coefficient)} × ${formatNumber(tValue)} = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, requirement.unit || '℃'))}`,
+            `±${formatNumber(coefficient)} × ${formatNumber(tValue)} = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, requirement.unit || '℃', 'delta'))}`,
             requirement
         );
     }
@@ -1443,7 +1629,7 @@ function calculateMechanicalClassMpe(formula, requirement, deviceRange) {
 
     const level = Number(classLevelMatch[1]);
     const displayUnit = requirement.unit || deviceRange.unit;
-    const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit);
+    const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit, 'absolute');
     if (!Number.isFinite(fullScaleInDisplayUnit)) {
         return null;
     }
@@ -1452,7 +1638,7 @@ function calculateMechanicalClassMpe(formula, requirement, deviceRange) {
     return buildCalculatedMpeResult(
         result,
         displayUnit,
-        `${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(level)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+        `${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(level)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
         requirement
     );
 }
@@ -1471,7 +1657,7 @@ function calculateMechanicalScaleClass(formula, requirement) {
     const displayUnit = requirement.unit || 'g';
     const className = formula.toUpperCase();
     let resultInGram = null;
-    const mInGram = fromBaseUnit(midValueBase, 'g');
+    const mInGram = fromBaseUnit(midValueBase, 'g', 'absolute');
     if (!Number.isFinite(mInGram)) {
         return null;
     }
@@ -1500,11 +1686,11 @@ function calculateMechanicalScaleClass(formula, requirement) {
         return null;
     }
 
-    const resultInDisplayUnit = fromBaseUnit(toBaseUnit(resultInGram, 'g'), displayUnit);
+    const resultInDisplayUnit = fromBaseUnit(toBaseUnit(resultInGram, 'g', 'delta'), displayUnit, 'delta');
     return buildCalculatedMpeResult(
         resultInDisplayUnit,
         displayUnit,
-        `${className}级分段判定：m = ${formatNumber(mInGram)} g，MPE = ${formatNumber(resultInGram)} g ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+        `${className}级分段判定：m = ${formatNumber(mInGram)} g，MPE = ${formatNumber(resultInGram)} g ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
         requirement
     );
 }
@@ -1521,7 +1707,7 @@ function calculateLengthSegmentedMpe(formula, requirement) {
     }
 
     const displayUnit = requirement.unit || '';
-    const measurementPoint = fromBaseUnit(requirement.midpointBase, displayUnit);
+    const measurementPoint = fromBaseUnit(requirement.midpointBase, displayUnit, 'absolute');
     if (!Number.isFinite(measurementPoint)) {
         return null;
     }
@@ -1540,7 +1726,7 @@ function calculateLengthSegmentedMpe(formula, requirement) {
             .trim())
         .filter(Boolean);
 
-    const segmentPattern = /(?:当)?\s*(-?\d+(?:\.\d+)?)\s*<\s*[Ll]\s*<=\s*(-?\d+(?:\.\d+)?)\s*(?:时)?\s*(?::)?\s*(?:MPE=)?\s*(?:±)?\s*(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)?/i;
+    const segmentPattern = /(?:当)?\s*(-?\d+(?:\.\d+)?)\s*<\s*[Ll]\s*<=\s*(-?\d+(?:\.\d+)?)\s*(?:时)?\s*(?::)?\s*(?:MPE=)?\s*(?:±)?\s*(-?\d+(?:\.\d+)?)([a-zA-Z0-9μμΩ℃°/%·³]+(?:\/[a-zA-Z0-9μμΩ℃°%·³]+)?)?/i;
 
     for (const line of normalizedLines) {
         const match = line.match(segmentPattern);
@@ -1562,7 +1748,7 @@ function calculateLengthSegmentedMpe(formula, requirement) {
             return buildCalculatedMpeResult(
                 mpeValue,
                 renderedUnit,
-                `按测量点 L 分段判定：L = ${formatNumber(measurementPoint)}${displayUnit ? ' ' + displayUnit : ''}，命中区间 (${formatNumber(lowerBound)}, ${formatNumber(upperBound)}]，MPE = ${formatNumber(mpeValue)}${renderedUnit ? ' ' + renderedUnit : ''} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, renderedUnit || displayUnit || ''))}`,
+                `按测量点 L 分段判定：L = ${formatNumber(measurementPoint)}${displayUnit ? ' ' + displayUnit : ''}，命中区间 (${formatNumber(lowerBound)}, ${formatNumber(upperBound)}]，MPE = ${formatNumber(mpeValue)}${renderedUnit ? ' ' + renderedUnit : ''} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, renderedUnit || displayUnit || '', 'delta'))}`,
                 requirement
             );
         }
@@ -1582,7 +1768,7 @@ function calculateFullScalePercent(formula, requirement, deviceRange) {
 
     const percent = Number(match[1]);
     const displayUnit = requirement.unit || deviceRange.unit;
-    const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit);
+    const fullScaleInDisplayUnit = fromBaseUnit(deviceRange.maxBase, displayUnit, 'absolute');
     if (!Number.isFinite(fullScaleInDisplayUnit)) {
         return null;
     }
@@ -1591,7 +1777,7 @@ function calculateFullScalePercent(formula, requirement, deviceRange) {
     return buildCalculatedMpeResult(
         result,
         displayUnit,
-        `${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit))}`,
+        `${formatNumber(Math.abs(fullScaleInDisplayUnit))} × ${formatNumber(percent)}% = ${formatNumber(result)} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, displayUnit, 'delta'))}`,
         requirement
     );
 }
@@ -1602,7 +1788,7 @@ function calculateFullScalePercent(formula, requirement, deviceRange) {
  * 例如：±0.02mm。
  */
 function calculateDirectNumericMpe(formula, requirement) {
-    const match = formula.match(/±?(-?\d+(?:\.\d+)?)([a-zA-ZμμΩ℃°]+)?/);
+    const match = formula.match(/±?(-?\d+(?:\.\d+)?)([a-zA-Z0-9μμΩ℃°/%·³]+(?:\/[a-zA-Z0-9μμΩ℃°%·³]+)?)?/);
     if (!match) {
         return null;
     }
@@ -1616,7 +1802,7 @@ function calculateDirectNumericMpe(formula, requirement) {
     return buildCalculatedMpeResult(
         value,
         formulaUnit,
-        `${formatNumber(value)}${formulaUnit ? ' ' + formulaUnit : ''} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, formulaUnit || requirement.unit || ''))}`,
+        `${formatNumber(value)}${formulaUnit ? ' ' + formulaUnit : ''} ≤ ${formatNumber(fromBaseUnit(requirement.mpeLimitBase, formulaUnit || requirement.unit || '', 'delta'))}`,
         requirement
     );
 }
@@ -1695,6 +1881,60 @@ function formatRange(requirement) {
     }
 
     return `(${formatNumber(requirement.min)}-${formatNumber(requirement.max)})${unitSuffix}`;
+}
+
+function buildMeasurementContext(formData = {}, record = null) {
+    const fields = record && record.fields ? record.fields : {};
+    const categoryField = fields.一级分类;
+    return {
+        category: formData.category || (categoryField && categoryField.name) || '',
+        subCategory: formData.sub_category || fields.二级分类 || '',
+        equipmentName: formData.equipment_name || fields.名称 || ''
+    };
+}
+
+function resolveDisplayUnit(formData = {}, record = null, requirement = null) {
+    return normalizeDisplayUnit(
+        (requirement && requirement.unit)
+        || resolveDefaultMeasurementUnit(buildMeasurementContext(formData, record))
+    );
+}
+
+function formatUnitBadge(unit) {
+    return unit ? ` (${unit})` : '';
+}
+
+function formatNumericTextWithUnit(text, fallbackUnit) {
+    const unit = normalizeDisplayUnit(fallbackUnit || '');
+    const trimmedText = String(text || '').trim();
+    if (!trimmedText) {
+        return '无';
+    }
+    if (!unit) {
+        return trimmedText;
+    }
+    if (!/^[-+]?\d+(?:\.\d+)?$/.test(trimmedText)) {
+        return trimmedText;
+    }
+    return `${trimmedText} ${unit}`;
+}
+
+function formatDeviceRangeForDisplay(record, fallbackUnit) {
+    if (!record || !record.fields) {
+        return '无';
+    }
+
+    const deviceRange = getDeviceRange(record, fallbackUnit);
+    if (Number.isFinite(deviceRange.min) && Number.isFinite(deviceRange.max)) {
+        const unitSuffix = deviceRange.unit ? ` ${deviceRange.unit}` : '';
+        return `(${formatNumber(deviceRange.min)}-${formatNumber(deviceRange.max)})${unitSuffix}`;
+    }
+
+    if (record.fields.测量下限 && record.fields.测量上限) {
+        return `${record.fields.测量下限}-${record.fields.测量上限}`;
+    }
+
+    return '无';
 }
 
 /**
@@ -1776,6 +2016,7 @@ function buildMeasurementSummary(requirement) {
         <div class="summary-grid">
             <div class="summary-item"><strong>测量对象要求范围</strong><span>${formatRange(requirement)}</span></div>
             <div class="summary-item"><strong>本次判定上限</strong><span>${formatNumber(requirement.intervalLength)} ÷ 6 = ${formatNumber(requirement.mpeLimit)}${unitSuffix}</span></div>
+            <div class="summary-item"><strong>当前计算单位</strong><span>${requirement.unit || '未识别'}</span></div>
             <div class="summary-item"><strong>技术原则</strong><span>设备计算 MPE 必须小于等于测量对象区间长度 ÷ 6。</span></div>
             <div class="summary-item"><strong>量程原则</strong><span>器具量程必须完整覆盖测量对象要求范围。</span></div>
             <div class="summary-item"><strong>MPE 计算方式</strong><span>根据设备类别和 MPE 字段内容自动匹配公式。</span></div>
@@ -1788,6 +2029,7 @@ function buildMeasurementSummary(requirement) {
  * 生成普通条件查询模式下的结果摘要卡片 HTML。
  */
 function buildBrowseSummary(formData, total) {
+    const defaultUnit = resolveDisplayUnit(formData, null, null);
     const conditions = [
         ['类别', formData.category],
         ['二级分类', formData.sub_category],
@@ -1807,6 +2049,7 @@ function buildBrowseSummary(formData, total) {
         <div class="summary-grid">
             <div class="summary-item"><strong>查询模式</strong><span>仅按表单条件查询，不执行量程与 MPE 计算。</span></div>
             <div class="summary-item"><strong>测量对象要求范围</strong><span>未填写</span></div>
+            <div class="summary-item"><strong>模块默认单位</strong><span>${defaultUnit || '未指定模块，暂不展示默认单位'}</span></div>
             <div class="summary-item"><strong>筛选条件</strong><span>${conditions.length > 0 ? conditions.join('；') : '未填写任何条件，当前展示全部工具。'}</span></div>
             <div class="summary-item"><strong>结果数量</strong><span>${total}</span></div>
             <div class="summary-item"><strong>排序方式</strong><span>按类别、二级分类、名称、型号排序展示。</span></div>
@@ -1820,22 +2063,20 @@ function buildBrowseSummary(formData, total) {
  * 卡片会根据是否启用技术筛选，决定展示原始误差信息还是计算后的 MPE 结果。
  */
 function createResultCard(formData, record, index) {
-    let rangeText = '';
-    if (record && record.fields.测量下限 && record.fields.测量上限) {
-        rangeText = `${record.fields.测量下限}-${record.fields.测量上限}`;
-    }
-
     const requirement = formData.measurement_requirement_parsed;
     const rawFields = record && record.fields ? (record.fields.原始字段 || {}) : {};
-    const unitSuffix = requirement && requirement.unit ? ` ${requirement.unit}` : '';
     const browseMode = !requirement;
-    const mpeText = record && record.computedMpe ? record.computedMpe.displayValue : (record.fields.MPE || '无');
+    const displayUnit = resolveDisplayUnit(formData, record, requirement);
+    const rangeText = formatDeviceRangeForDisplay(record, displayUnit);
+    const mpeText = record && record.computedMpe
+        ? record.computedMpe.displayValue
+        : formatNumericTextWithUnit(record.fields.MPE || '无', displayUnit);
     const rawMpevText = rawFields.MPEV
         ? String(rawFields.MPEV).replace(/\r?\n/g, '<br>')
         : '无';
     const mpeExpression = record && record.computedMpe ? record.computedMpe.expression : '未输入测量对象要求范围，未执行 MPE 适配计算';
     const measurementRequirementText = requirement ? formatRange(requirement) : '未填写';
-    const measurementLimitText = requirement ? `${formatNumber(requirement.mpeLimit)}${unitSuffix}` : '未计算';
+    const measurementLimitText = requirement ? `${formatNumber(requirement.mpeLimit)}${displayUnit ? ` ${displayUnit}` : ''}` : '未计算';
 
     const card = document.createElement('div');
     card.className = `result-card ${browseMode ? 'browse-mode' : 'measurement-mode'}`;
@@ -1872,6 +2113,10 @@ function createResultCard(formData, record, index) {
             <tr>
                 <td>${browseMode ? '查询模式' : '允许 MPEV 上限'}</td>
                 <td>${browseMode ? '按条件查询，未做量程和 MPE 过滤' : measurementLimitText}</td>
+            </tr>
+            <tr>
+                <td>模块默认单位</td>
+                <td>${displayUnit || '未识别'}</td>
             </tr>
             <tr>
                 <td>二级分类</td>
