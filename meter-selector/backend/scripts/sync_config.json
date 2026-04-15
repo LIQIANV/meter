@@ -1,10 +1,10 @@
 {
-  "app_key": "dingnagbe4sucjlqi2n7",
-  "app_secret": "84S3asRPNFMFFV2CZXrJJ6oRkf5Ywsm-Uk0qGtTQKNEif_hMIfS0eUumLVMvdN3k",
-  "app_token": "OG9lyrgJPzymk9NbUbPY31nDWzN67Mw4",
+  "app_key": "ding8kw21ldmixqkf7np", 
+  "app_secret": "BchPSjhf3wI4PgDBQAR1Q3Rq7liVnhV8ZzBHafOuIdxTd1F_qLcmFa50kUBD2_Tz",
+  "app_token": "gpG2NdyVXgn5rA6YIApeyvxpWMwvDqPk",
   "table_id": "hERWDMS",
-  "operator_id": "bHDxoEQKpPHesWTX9eYiSvAiEiE",
-  "access_token_cookie": "ability_a_t_n=E2XNYeESrgI1WFlAc854nJjT_TVbv9nx5wCYM6T_-drlVxnzrOrQRQ; ability_token=994b029049a94304b7c5789614dbc9d1",
-  "records_cookie": "ability_a_t_n=f6oS63fRuEKbOnViBxjXB0W5-opawrSLUXvCiTWh6ILlVxnzrOrQRQ; ability_token=1da72c9e6ec24d8fbf6f6697ed18e1ed",
+  "operator_id": "6MH7sLOMFDfWiSCXRHDFSOwiEiE",
+  "access_token_cookie": "",
+  "records_cookie": "",
   "initial_next_token": ""
 }

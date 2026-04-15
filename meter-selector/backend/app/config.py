@@ -32,8 +32,8 @@ class Settings:
     search_log_file = SEARCH_LOG_FILE
     frontend_dir = FRONTEND_DIR
     cors_origins = ["*"]
-    dify_base_url = os.getenv("DIFY_BASE_URL", "http://10.10.206.202/v1").rstrip("/")
-    dify_api_key = os.getenv("DIFY_API_KEY", "app-kjD3uSJKaM7edeMRcvtj7QdQ").strip()
+    dify_base_url = os.getenv("DIFY_BASE_URL", "http://aiportal.sanhuagroup.com/v1").rstrip("/")
+    dify_api_key = os.getenv("DIFY_API_KEY", "app-lADIp6HQyZtJhfq6hN6tq6uJ").strip()
     dify_timeout = int(os.getenv("DIFY_TIMEOUT", "45"))
     dify_user = os.getenv("DIFY_USER", "meter-selector-backend").strip()
 

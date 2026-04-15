@@ -1412,17 +1412,23 @@ function parseValueWithUnit(value, fallbackUnit) {
     };
 }
 
+function resolveRecordMeasurementUnit(record, fallbackUnit) {
+    const rawFields = record && record.fields ? (record.fields.原始字段 || {}) : {};
+    return normalizeDisplayUnit(rawFields.单位 || fallbackUnit || '');
+}
+
 /**
  * 读取设备的测量上下限并换算成统一结构。
  */
 function getDeviceRange(record, fallbackUnit) {
-    const minInfo = parseValueWithUnit(record.fields.测量下限, fallbackUnit);
-    const maxInfo = parseValueWithUnit(record.fields.测量上限, fallbackUnit);
+    const recordUnit = resolveRecordMeasurementUnit(record, fallbackUnit);
+    const minInfo = parseValueWithUnit(record.fields.测量下限, recordUnit);
+    const maxInfo = parseValueWithUnit(record.fields.测量上限, recordUnit);
 
     return {
         min: minInfo.value,
         max: maxInfo.value,
-        unit: maxInfo.unit || minInfo.unit || normalizeDisplayUnit(fallbackUnit || ''),
+        unit: maxInfo.unit || minInfo.unit || recordUnit,
         minBase: minInfo.normalizedValue,
         maxBase: maxInfo.normalizedValue
     };
