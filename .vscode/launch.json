@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FastAPI: Debug uvicorn",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "cwd": "${workspaceFolder}/meter-selector/backend",
+      "args": [
+        "app.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "QWEN_API_KEY": "",
+        "QWEN_MODEL": "qwen-plus",
+        "QWEN_BASE_URL": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      }
+    },
+    {
+      "name": "FastAPI: Attach 5678",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "justMyCode": true
+    }
+  ]
+}

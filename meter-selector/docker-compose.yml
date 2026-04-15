@@ -1,0 +1,24 @@
+services:
+  meter-selector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meter-selector
+    restart: unless-stopped
+    ports:
+      - "50001:8000"
+    environment:
+      DIFY_BASE_URL: ${DIFY_BASE_URL:-}
+      DIFY_API_KEY: ${DIFY_API_KEY:-}
+      DIFY_TIMEOUT: ${DIFY_TIMEOUT:-45}
+      DIFY_USER: ${DIFY_USER:-meter-selector-backend}
+      DINGTALK_APP_KEY: ${DINGTALK_APP_KEY:-}
+      DINGTALK_APP_SECRET: ${DINGTALK_APP_SECRET:-}
+      DINGTALK_APP_TOKEN: ${DINGTALK_APP_TOKEN:-}
+      DINGTALK_TABLE_ID: ${DINGTALK_TABLE_ID:-}
+      DINGTALK_OPERATOR_ID: ${DINGTALK_OPERATOR_ID:-}
+      DINGTALK_ACCESS_TOKEN_COOKIE: ${DINGTALK_ACCESS_TOKEN_COOKIE:-}
+      DINGTALK_RECORDS_COOKIE: ${DINGTALK_RECORDS_COOKIE:-}
+    volumes:
+      - ./backend/data:/app/backend/data
+      - ./backend/scripts/sync_config.json:/app/backend/scripts/sync_config.json:ro
